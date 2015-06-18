@@ -17,6 +17,10 @@ try {
 	$runner->bootstrap( $wp_path );
 	$runner->run();
 }
+catch ( SignalInterrupt $e ) {
+	printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
+	exit(0);
+}
 catch ( Exception $e ) {
 	fwrite( STDERR, sprintf( 'Error: %s' . PHP_EOL, $e->getMessage() ) );
 	fwrite( STDERR, $e->getTraceAsString() . PHP_EOL );

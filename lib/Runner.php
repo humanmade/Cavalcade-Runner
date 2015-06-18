@@ -76,7 +76,7 @@ class Runner {
 		$this->terminate();
 	}
 
-	public function terminate() {
+	public function terminate( $signal ) {
 
 		// Wait and clean up
 		while ( ! empty( $this->workers ) ) {
@@ -85,7 +85,7 @@ class Runner {
 
 		unset( $this->db );
 
-		throw new Exception( 'Shutting down!' );
+		throw new SignalInterrupt( 'Terminated by signal', $signal );
 	}
 
 	protected function connect_to_db() {
