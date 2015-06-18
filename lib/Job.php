@@ -3,7 +3,10 @@
 namespace HM\Cavalcade\Runner;
 
 class Job {
+	public $id;
+	public $site;
 	public $hook;
+	public $args;
 	public $start;
 	public $nextrun;
 	public $interval;
@@ -27,10 +30,10 @@ class Job {
 	public function acquire_lock() {
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
 		$query .= ' SET status = "running"';
-		$query .= ' WHERE status = "waiting" AND hook = :hook';
+		$query .= ' WHERE status = "waiting" AND id = :id';
 
 		$statement = $this->db->prepare( $query );
-		$statement->bindValue( ':hook', $this->hook );
+		$statement->bindValue( ':id', $this->id );
 		$statement->execute();
 
 		$rows = $statement->rowCount();
@@ -40,10 +43,10 @@ class Job {
 	public function mark_failed() {
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
 		$query .= ' SET status = "failed"';
-		$query .= ' WHERE hook = :hook';
+		$query .= ' WHERE hook = :id';
 
 		$statement = $this->db->prepare( $query );
-		$statement->bindValue( ':hook', $this->hook );
+		$statement->bindValue( ':id', $this->id );
 		$statement->execute();
 	}
 }

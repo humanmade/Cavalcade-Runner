@@ -125,8 +125,8 @@ class Runner {
 		}
 
 		$command = sprintf(
-			'wp cavalcade run %s',
-			$job->hook
+			'wp cavalcade run %d',
+			$job->id
 		);
 		$cwd = $this->wp_path;
 
