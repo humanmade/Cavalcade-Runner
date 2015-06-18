@@ -1,6 +1,6 @@
 <?php
 
-namespace HM\Cavalcade;
+namespace HM\Cavalcade\Runner;
 
 class Job {
 	public $hook;

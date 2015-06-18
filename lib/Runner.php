@@ -3,7 +3,7 @@
  * Cavalcade Runner
  */
 
-namespace HM\Cavalcade;
+namespace HM\Cavalcade\Runner;
 
 use Exception;
 use PDO;

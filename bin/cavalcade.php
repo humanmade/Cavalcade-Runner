@@ -4,7 +4,7 @@
  * Cavalcade
  */
 
-namespace HM\Cavalcade;
+namespace HM\Cavalcade\Runner;
 
 use Exception;
 
