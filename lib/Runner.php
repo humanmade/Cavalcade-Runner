@@ -9,6 +9,8 @@ use Exception;
 use PDO;
 use PDOException;
 
+const LOOP_INTERVAL = 1;
+
 class Runner {
 	protected $db;
 	protected $workers = array();
@@ -58,7 +60,7 @@ class Runner {
 			$job = $this->get_next_job();
 			if ( empty( $job ) ) {
 				// No job to run, try again in a second
-				sleep( 1 );
+				sleep( LOOP_INTERVAL );
 				continue;
 			}
 
