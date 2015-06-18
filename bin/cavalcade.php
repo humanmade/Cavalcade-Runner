@@ -8,9 +8,7 @@ namespace HM\Cavalcade\Runner;
 
 use Exception;
 
-include dirname( __DIR__ ) . '/lib/Job.php';
-include dirname( __DIR__ ) . '/lib/Runner.php';
-include dirname( __DIR__ ) . '/lib/Worker.php';
+include dirname( __DIR__ ) . '/bootstrap.php';
 
 $wp_path = isset( $argv[1] ) ? $argv[1] : '.';
 
