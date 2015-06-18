@@ -182,7 +182,7 @@ class Runner {
 
 		// Grab all the pipes ready to close
 		$a = $b = null; // Dummy vars for reference passing
-		$changed = stream_select( $pipes, $a, $b, 2 );
+		$changed = stream_select( $pipes, $a, $b, 0 );
 		if ( $changed === false ) {
 			// ERROR!
 			return false;
