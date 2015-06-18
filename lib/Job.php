@@ -43,7 +43,7 @@ class Job {
 	public function mark_failed() {
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
 		$query .= ' SET status = "failed"';
-		$query .= ' WHERE hook = :id';
+		$query .= ' WHERE id = :id';
 
 		$statement = $this->db->prepare( $query );
 		$statement->bindValue( ':id', $this->id );
