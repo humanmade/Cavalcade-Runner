@@ -12,9 +12,18 @@ use PDOException;
 const LOOP_INTERVAL = 1;
 
 class Runner {
+	public $options = array();
+
 	protected $db;
 	protected $workers = array();
 	protected $wp_path;
+
+	public function __construct( $options = array() ) {
+		$defaults = array(
+			'max_workers' => 4,
+		);
+		$this->options = array_merge( $defaults, $options );
+	}
 
 	public function bootstrap( $wp_path = '.' ) {
 		// Check some requirements first
@@ -55,6 +64,14 @@ class Runner {
 
 			// Check the running workers
 			$this->check_workers();
+
+			// Do we have workers to spare?
+			if ( count( $this->workers ) === $this->options['max_workers'] ) {
+				// At maximum workers, wait a cycle
+				printf( '[  ] Out of workers' . PHP_EOL );
+				sleep( LOOP_INTERVAL );
+				continue;
+			}
 
 			// Find any new jobs, or wait for one
 			$job = $this->get_next_job();
