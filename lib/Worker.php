@@ -48,9 +48,9 @@ class Worker {
 		fclose( $this->pipes[1] );
 		fclose( $this->pipes[2] );
 
-		printf( 'out: %s' . PHP_EOL, $this->output );
-		printf( 'err: %s' . PHP_EOL, $this->error_output );
-		var_dump( $this->status );
+		printf( '[%d] out: %s' . PHP_EOL, $this->job->id, $this->output );
+		printf( '[%d] err: %s' . PHP_EOL, $this->job->id, $this->error_output );
+		printf( '[%d] ret: %d' . PHP_EOL, $this->job->id, $this->status['exitcode'] );
 
 		// Close the process down too
 		proc_close( $this->process );

@@ -148,6 +148,7 @@ class Runner {
 			$job->id
 		);
 		$cwd = $this->wp_path;
+		printf( '[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args );
 
 		$spec = array(
 			// stdin
@@ -166,6 +167,7 @@ class Runner {
 		}
 
 		$this->workers[] = new Worker( $process, $pipes, $job );
+		printf( '[%d] Started worker' . PHP_EOL, $job->id );
 	}
 
 	protected function check_workers() {
