@@ -2,6 +2,8 @@
 
 namespace HM\Cavalcade\Runner;
 
+define( __NAMESPACE__ . '\\PATH', __DIR__ );
+
 function autoload( $class ) {
 	if ( strpos( $class, __NAMESPACE__ ) !== 0 ) {
 		return;
