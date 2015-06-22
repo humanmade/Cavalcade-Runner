@@ -144,7 +144,8 @@ class Runner {
 		}
 
 		$command = sprintf(
-			'wp cavalcade run %d',
+			"wp --url=%s cavalcade run %d",
+			escapeshellarg( $job->get_site_url() ),
 			$job->id
 		);
 		$cwd = $this->wp_path;

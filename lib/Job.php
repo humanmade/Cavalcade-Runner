@@ -2,6 +2,8 @@
 
 namespace HM\Cavalcade\Runner;
 
+use PDO;
+
 class Job {
 	public $id;
 	public $site;
@@ -18,6 +20,19 @@ class Job {
 	public function __construct( $db, $table_prefix ) {
 		$this->db = $db;
 		$this->table_prefix = $table_prefix;
+	}
+
+	public function get_site_url() {
+		$query = "SELECT domain, path FROM {$this->table_prefix}blogs";
+		$query .= ' WHERE blog_id = :site';
+
+		$statement = $this->db->prepare( $query );
+		$statement->bindValue( ':site', $this->site );
+		$statement->execute();
+
+		$data = $statement->fetch( PDO::FETCH_ASSOC );
+		$url = $data['domain'] . $data['path'];
+		return $url;
 	}
 
 	/**
