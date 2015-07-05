@@ -4,6 +4,8 @@ namespace HM\Cavalcade\Runner;
 
 use PDO;
 
+const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
+
 class Job {
 	public $id;
 	public $site;
@@ -62,6 +64,16 @@ class Job {
 
 		$statement = $this->db->prepare( $query );
 		$statement->bindValue( ':id', $this->id );
+		$statement->execute();
+	protected function log_run( $status, $message = '' ) {
+		$query = "INSERT INTO {$this->table_prefix}cavalcade_logs (`job`, `status`, `timestamp`, `content`)";
+		$query .= ' values( :job, :status, :timestamp, :content )';
+
+		$statement = $this->db->prepare( $query );
+		$statement->bindValue( ':job', $this->id );
+		$statement->bindValue( ':status', $status );
+		$statement->bindValue( ':timestamp', date( 'Y-m-d H:i:s' ) );
+		$statement->bindValue( ':content', $message );
 		$statement->execute();
 	}
 }
