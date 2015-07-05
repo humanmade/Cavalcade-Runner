@@ -194,7 +194,7 @@ class Runner {
 			return true;
 		}
 
-		$logger = new Logger;
+		$logger = new Logger( $this->db, $this->table_prefix );
 
 		// Clean up all of the finished workers
 		foreach ( $pipes as $id => $stream ) {
