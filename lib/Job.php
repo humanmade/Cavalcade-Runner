@@ -72,8 +72,6 @@ class Job {
 			$statement->bindValue( ':id', $this->id );
 			$statement->execute();
 		}
-
-		$this->log_run( 'completed' );
 	}
 
 	public function reschedule() {
@@ -103,20 +101,6 @@ class Job {
 
 		$statement = $this->db->prepare( $query );
 		$statement->bindValue( ':id', $this->id );
-		$statement->execute();
-
-		$this->log_run( 'failed', $message );
-	}
-
-	protected function log_run( $status, $message = '' ) {
-		$query = "INSERT INTO {$this->table_prefix}cavalcade_logs (`job`, `status`, `timestamp`, `content`)";
-		$query .= ' values( :job, :status, :timestamp, :content )';
-
-		$statement = $this->db->prepare( $query );
-		$statement->bindValue( ':job', $this->id );
-		$statement->bindValue( ':status', $status );
-		$statement->bindValue( ':timestamp', date( 'Y-m-d H:i:s' ) );
-		$statement->bindValue( ':content', $message );
 		$statement->execute();
 	}
 }

@@ -194,6 +194,8 @@ class Runner {
 			return true;
 		}
 
+		$logger = new Logger;
+
 		// Clean up all of the finished workers
 		foreach ( $pipes as $id => $stream ) {
 			$worker = $this->workers[ $id ];
@@ -203,10 +205,12 @@ class Runner {
 			}
 
 			if ( ! $worker->shutdown() ) {
-				$worker->job->mark_failed( 'Failed to shutdown worker.');
+				$worker->job->mark_failed();
+				$logger->log_job_failed( $worker->job, 'Failed to shutdown worker.' );
+			} else {
+				$worker->job->mark_completed();
+				$logger->log_job_completed( $worker->job );
 			}
-
-			$worker->job->mark_completed();
 
 			unset( $this->workers[ $id ] );
 		}
