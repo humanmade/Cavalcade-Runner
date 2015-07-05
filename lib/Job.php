@@ -57,7 +57,46 @@ class Job {
 		return ( $rows === 1 );
 	}
 
-	public function mark_failed() {
+	public function mark_completed() {
+		global $wpdb;
+
+		$data = array();
+		if ( $this->interval ) {
+			$this->reschedule();
+		} else {
+			$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
+			$query .= ' SET status = "completed"';
+			$query .= ' WHERE id = :id';
+
+			$statement = $this->db->prepare( $query );
+			$statement->bindValue( ':id', $this->id );
+			$statement->execute();
+		}
+
+		$this->log_run( 'completed' );
+	}
+
+	public function reschedule() {
+		$this->nextrun = date( MYSQL_DATE_FORMAT, strtotime( $this->nextrun ) + $this->interval );
+		$this->status  = 'waiting';
+
+		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
+		$query .= ' SET status = :status, nextrun = :nextrun';
+		$query .= ' WHERE id = :id';
+
+		$statement = $this->db->prepare( $query );
+		$statement->bindValue( ':id', $this->id );
+		$statement->bindValue( ':status', $this->status );
+		$statement->bindValue( ':nextrun', $this->nextrun );
+		$statement->execute();
+	}
+
+	/**
+	 * Mark the job as failed.
+	 *
+	 * @param  string $message failure detail message
+	 */
+	public function mark_failed( $message = '' ) {
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
 		$query .= ' SET status = "failed"';
 		$query .= ' WHERE id = :id';
@@ -65,6 +104,10 @@ class Job {
 		$statement = $this->db->prepare( $query );
 		$statement->bindValue( ':id', $this->id );
 		$statement->execute();
+
+		$this->log_run( 'failed', $message );
+	}
+
 	protected function log_run( $status, $message = '' ) {
 		$query = "INSERT INTO {$this->table_prefix}cavalcade_logs (`job`, `status`, `timestamp`, `content`)";
 		$query .= ' values( :job, :status, :timestamp, :content )';

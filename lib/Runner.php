@@ -203,8 +203,10 @@ class Runner {
 			}
 
 			if ( ! $worker->shutdown() ) {
-				$worker->job->mark_failed();
+				$worker->job->mark_failed( 'Failed to shutdown worker.');
 			}
+
+			$worker->job->mark_completed();
 
 			unset( $this->workers[ $id ] );
 		}
