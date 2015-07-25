@@ -144,19 +144,19 @@ class Runner {
 		}
 
 
-    $siteurl = $job->get_site_url();
+		$siteurl = $job->get_site_url();
 
 		$command = sprintf(
 			"wp cavalcade run %d",
 			$job->id
 		);
 
-    if ( $siteurl ) {
-				$command = sprintf(
-					"wp --url=%s cavalcade run %d",
-					escapeshellarg( $job->get_site_url() ),
-					$job->id
-				);
+		if ( $siteurl ) {
+			$command = sprintf(
+				"wp --url=%s cavalcade run %d",
+				escapeshellarg( $job->get_site_url() ),
+				$job->id
+			);
 		}
 
 		$cwd = $this->wp_path;
