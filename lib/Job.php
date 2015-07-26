@@ -25,6 +25,14 @@ class Job {
 	}
 
 	public function get_site_url() {
+		$query = "SHOW TABLES LIKE '{$this->table_prefix}blogs'";
+		$statement = $this->db->prepare( $query );
+		$statement->execute();
+
+		if ( 0 === $statement->rowCount() ) {
+			return false;
+		}
+
 		$query = "SELECT domain, path FROM {$this->table_prefix}blogs";
 		$query .= ' WHERE blog_id = :site';
 
