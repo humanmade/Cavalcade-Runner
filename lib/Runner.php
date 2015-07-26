@@ -92,7 +92,7 @@ class Runner {
 			// Go again!
 		}
 
-		$this->terminate();
+		$this->terminate( SIGTERM );
 	}
 
 	public function terminate( $signal ) {
