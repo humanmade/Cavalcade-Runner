@@ -152,10 +152,9 @@ class Runner {
 		);
 
 		if ( $siteurl ) {
-			$command = sprintf(
-				"wp --url=%s cavalcade run %d",
-				escapeshellarg( $job->get_site_url() ),
-				$job->id
+			$command .= sprintf(
+				" --url=%s",
+				escapeshellarg( $job->get_site_url() )
 			);
 		}
 
