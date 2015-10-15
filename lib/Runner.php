@@ -143,20 +143,7 @@ class Runner {
 			return;
 		}
 
-
-		$siteurl = $job->get_site_url();
-
-		$command = sprintf(
-			"wp cavalcade run %d",
-			$job->id
-		);
-
-		if ( $siteurl ) {
-			$command .= sprintf(
-				" --url=%s",
-				escapeshellarg( $job->get_site_url() )
-			);
-		}
+		$command = $this->get_job_command( $job );
 
 		$cwd = $this->wp_path;
 		printf( '[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args );
@@ -179,6 +166,24 @@ class Runner {
 
 		$this->workers[] = new Worker( $process, $pipes, $job );
 		printf( '[%d] Started worker' . PHP_EOL, $job->id );
+	}
+
+	protected function get_job_command( $job ) {
+		$siteurl = $job->get_site_url();
+
+		$command = sprintf(
+			"wp cavalcade run %d",
+			$job->id
+		);
+
+		if ( $siteurl ) {
+			$command .= sprintf(
+				" --url=%s",
+				escapeshellarg( $siteurl )
+			);
+		}
+
+		return $command;
 	}
 
 	protected function check_workers() {
