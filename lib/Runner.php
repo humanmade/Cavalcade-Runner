@@ -192,8 +192,8 @@ class Runner {
 		}
 
 		$pipes = array();
-		foreach ( $this->workers as $id => $worker ) {
-			$pipes[ $id ] = $worker->pipes[1];
+		foreach ( $this->workers as $worker ) {
+			$pipes[] = $worker->pipes[1];
 		}
 
 		// Grab all the pipes ready to close
@@ -212,8 +212,18 @@ class Runner {
 		$logger = new Logger( $this->db, $this->table_prefix );
 
 		// Clean up all of the finished workers
-		foreach ( $pipes as $id => $stream ) {
-			$worker = $this->workers[ $id ];
+		foreach ( $pipes as $stream ) {
+			// Find which worker it was
+			$matched = array_filter( $this->workers, function ( $worker ) use ( $stream ) {
+				return $worker->pipes[1] === $stream;
+			});
+			if ( count( $matched ) !== 1 ) {
+				// This is weird...
+				printf( '[!!] Could not match pipe to worker!' );
+				continue;
+			}
+
+			$worker = $matched[0];
 			if ( ! $worker->is_done() ) {
 				// Process hasn't exited yet, keep rocking on
 				continue;
@@ -227,6 +237,7 @@ class Runner {
 				$logger->log_job_completed( $worker->job );
 			}
 
+			$id = array_search( $worker, $this->workers, true );
 			unset( $this->workers[ $id ] );
 		}
 	}
