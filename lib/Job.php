@@ -66,8 +66,6 @@ class Job {
 	}
 
 	public function mark_completed() {
-		global $wpdb;
-
 		$data = array();
 		if ( $this->interval ) {
 			$this->reschedule();
