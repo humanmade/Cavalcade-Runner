@@ -1,0 +1,13 @@
+# Typically, place in your /lib/systemd/system/ folder and sudo systemctl enable cavalcade.service
+[Unit]
+Description=CavalcadeRunner
+
+[Service]
+TimeoutStartSec=0
+Restart=always
+WorkingDirectory=/srv/www/webroot
+User=www-data
+ExecStart=/etc/cavalcade/bin/cavalcade
+
+[Install]
+WantedBy=multi-user.target
