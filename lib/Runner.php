@@ -112,7 +112,13 @@ class Runner {
 
 	protected function connect_to_db() {
 		$charset = defined( 'DB_CHARSET' ) ? DB_CHARSET : 'utf8';
-		$dsn = sprintf( 'mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, $charset );
+
+		// Check if we're passed a Unix socket (`:/tmp/socket` or `localhost:/tmp/socket`)
+		if ( preg_match( '#^[^:]*:(/.+)$#', DB_HOST, $matches ) ) {
+			$dsn = sprintf( 'mysql:unix_socket=%s;dbname=%s;charset=%s', $matches[1], DB_NAME, $charset );
+		} else {
+			$dsn = sprintf( 'mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, $charset );
+		}
 
 		$options = array();
 		$this->db = new PDO( $dsn, DB_USER, DB_PASSWORD, $options );
