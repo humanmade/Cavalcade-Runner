@@ -4,6 +4,7 @@ Description=CavalcadeRunner
 
 [Service]
 TimeoutStartSec=0
+TimeoutStopSec=600
 Restart=always
 WorkingDirectory=/srv/www/webroot
 User=www-data
