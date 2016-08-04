@@ -38,7 +38,6 @@ class Worker {
 	 * @return bool Did the process run successfully?
 	 */
 	public function shutdown() {
-
 		printf( '[%d] Worker shutting down...' . PHP_EOL, $this->job->id );
 		// Exhaust the streams
 		while ( ! feof( $this->pipes[1] ) ) {
