@@ -100,6 +100,7 @@ class Runner {
 
 	public function terminate( $signal ) {
 
+		printf( 'Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL, $signal, count( $this->workers ) );
 		// Wait and clean up
 		while ( ! empty( $this->workers ) ) {
 			$this->check_workers();
