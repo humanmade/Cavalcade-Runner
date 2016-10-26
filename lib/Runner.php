@@ -33,7 +33,7 @@ class Runner {
 
 		$config_path = realpath( $wp_path . '/wp-config.php' );
 		if ( ! file_exists( $config_path ) ) {
-			$config_path = realpath( $wp_path . '/../wp-config.php ');
+			$config_path = realpath( $wp_path . '/../wp-config.php' );
 			if ( ! file_exists( $config_path ) ) {
 				throw new Exception( sprintf( 'Could not find config file at %s', realpath( $wp_path ) . '/wp-config.php or next level up.' ) );
 			}
