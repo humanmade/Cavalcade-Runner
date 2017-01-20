@@ -8,7 +8,9 @@ TimeoutStopSec=600
 Restart=always
 WorkingDirectory=/srv/www/webroot
 User=www-data
-ExecStart=/etc/cavalcade/bin/cavalcade
+SuccessExitStatus=3
+RestartPreventExitStatus=3
+ExecStart=/usr/bin/env bash -c '(test ! -f /etc/cavalcade.disabled || exit 3) && /etc/cavalcade/bin/cavalcade'
 
 [Install]
 WantedBy=multi-user.target
