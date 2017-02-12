@@ -72,7 +72,7 @@ class Runner {
 			if ( count( $this->workers ) === $this->options['max_workers'] ) {
 				// At maximum workers, wait a cycle
                 if (CAVALCADE_RUNNER_SYSLOG)
-				    printf( '[  ] Out of workers' . PHP_EOL );
+                    printf( '[  ] Out of workers' . PHP_EOL );
 
 				sleep( LOOP_INTERVAL );
 				continue;
@@ -103,7 +103,7 @@ class Runner {
 	public function terminate( $signal ) {
 
         if (CAVALCADE_RUNNER_SYSLOG)
-		    printf( 'Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL, $signal, count( $this->workers ) );
+            printf( 'Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL, $signal, count( $this->workers ) );
 		// Wait and clean up
 		while ( ! empty( $this->workers ) ) {
 			$this->check_workers();
@@ -159,8 +159,8 @@ class Runner {
 		$command = $this->get_job_command( $job );
 
 		$cwd = $this->wp_path;
-		if (CAVALCADE_RUNNER_SYSLOG)
-		    printf( '[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args );
+        if (CAVALCADE_RUNNER_SYSLOG)
+            printf( '[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args );
 
 		$spec = array(
 			// stdin
@@ -179,8 +179,8 @@ class Runner {
 		}
 
 		$this->workers[] = new Worker( $process, $pipes, $job );
-		if (CAVALCADE_RUNNER_SYSLOG)
-		    printf( '[%d] Started worker' . PHP_EOL, $job->id );
+        if (CAVALCADE_RUNNER_SYSLOG)
+            printf( '[%d] Started worker' . PHP_EOL, $job->id );
 	}
 
 	protected function get_job_command( $job ) {

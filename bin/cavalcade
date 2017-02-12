@@ -19,7 +19,7 @@ try {
 }
 catch ( SignalInterrupt $e ) {
     if (CAVALCADE_RUNNER_SYSLOG)
-	    printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
+        printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
 	exit(0);
 }
 catch ( Exception $e ) {
