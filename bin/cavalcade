@@ -18,7 +18,8 @@ try {
 	$runner->run();
 }
 catch ( SignalInterrupt $e ) {
-	printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
+    if (CAVALCADE_RUNNER_SYSLOG)
+        printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
 	exit(0);
 }
 catch ( Exception $e ) {
