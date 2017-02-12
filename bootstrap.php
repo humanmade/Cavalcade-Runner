@@ -14,4 +14,6 @@ function autoload( $class ) {
 	include __DIR__ . '/lib/' . $file . '.php';
 }
 
+define('CAVALCADE_RUNNER_SYSLOG', false);
+
 spl_autoload_register( __NAMESPACE__ . '\\autoload' );
