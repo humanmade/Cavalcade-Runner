@@ -224,6 +224,7 @@ class Runner {
 		// Clean up all of the finished workers
 		foreach ( $pipes as $id => $stream ) {
 			$worker = $this->workers[ $id ];
+			$worker->drain_pipes();
 			if ( ! $worker->is_done() ) {
 				// Process hasn't exited yet, keep rocking on
 				continue;
