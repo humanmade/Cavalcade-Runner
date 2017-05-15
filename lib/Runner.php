@@ -201,28 +201,39 @@ class Runner {
 			return true;
 		}
 
-		$pipes = array();
+		$pipes_stdout = $pipes_stderr = array();
 		foreach ( $this->workers as $id => $worker ) {
-			$pipes[ $id ] = $worker->pipes[1];
+			$pipes_stdout[ $id ] = $worker->pipes[1];
+			$pipes_stderr[ $id ] = $worker->pipes[2];
 		}
 
 		// Grab all the pipes ready to close
 		$a = $b = null; // Dummy vars for reference passing
-		$changed = stream_select( $pipes, $a, $b, 0 );
-		if ( $changed === false ) {
+
+		$changed_stdout = stream_select( $pipes_stdout, $a, $b, 0 );
+		if ( $changed_stdout === false ) {
 			// ERROR!
 			return false;
 		}
 
-		if ( $changed === 0 ) {
+		$changed_stderr = stream_select( $pipes_stderr, $a, $b, 0 );
+		if ( $changed_stderr === false ) {
+			// ERROR!
+			return false;
+		}
+
+		if ( $changed_stdout === 0 && $changed_stderr === 0 ) {
 			// No change, try again
 			return true;
 		}
 
+		// List of Workers with a changed state
+		$changed_workers = array_merge( array_keys( $pipes_stdout ), array_keys( $pipes_stderr ) );
+
 		$logger = new Logger( $this->db, $this->table_prefix );
 
 		// Clean up all of the finished workers
-		foreach ( $pipes as $id => $stream ) {
+		foreach ( $changed_workers as $id ) {
 			$worker = $this->workers[ $id ];
 			$worker->drain_pipes();
 			if ( ! $worker->is_done() ) {
