@@ -174,6 +174,10 @@ class Runner {
 			throw new Exception();
 		}
 
+		// Disable blocking to allow partial stream reads before EOF.
+		stream_set_blocking( $pipes[1], false );
+		stream_set_blocking( $pipes[2], false );
+
 		$this->workers[] = new Worker( $process, $pipes, $job );
 		printf( '[%d] Started worker' . PHP_EOL, $job->id );
 	}

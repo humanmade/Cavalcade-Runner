@@ -38,11 +38,12 @@ class Worker {
 	 * Draining the pipes is needed to avoid workers hanging when they hit the system pipe buffer limits.
 	 */
 	public function drain_pipes() {
-		while ( ! feof( $this->pipes[1] ) ) {
-			$this->output .= fread( $this->pipes[1], 1024 );
+		while ( $data = fread( $this->pipes[1], 1024 ) ) {
+			$this->output .= $data;
 		}
-		while ( ! feof( $this->pipes[2] ) ) {
-			$this->error_output .= fread( $this->pipes[2], 1024 );
+
+		while ( $data = fread( $this->pipes[2], 1024 ) ) {
+			$this->error_output .= $data;
 		}
 	}
 
