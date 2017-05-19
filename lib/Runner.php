@@ -344,6 +344,7 @@ class Runner {
 			if ( ! $worker->shutdown() ) {
 				$worker->job->mark_failed();
 				$logger->log_job_failed( $worker->job, 'Failed to shutdown worker.' );
+
 				/**
 				 * Action after a job has failed.
 				 *
@@ -354,6 +355,7 @@ class Runner {
 			} else {
 				$worker->job->mark_completed();
 				$logger->log_job_completed( $worker->job );
+
 				/**
 				 * Action after a job has failed.
 				 *
