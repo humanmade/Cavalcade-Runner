@@ -25,12 +25,32 @@ class Runner {
 	protected $workers = array();
 	protected $wp_path;
 
+	/**
+	 * Instance of the runner.
+	 *
+	 * @var self
+	 */
+	protected static $instance;
+
 	public function __construct( $options = array() ) {
 		$defaults = array(
 			'max_workers' => 4,
 		);
 		$this->options = array_merge( $defaults, $options );
 		$this->hooks = new Hooks();
+	}
+
+	/**
+	 * Get the singleton instance of the Runner.
+	 *
+	 * @return self
+	 */
+	public static function instance() {
+		if ( empty( static::$instance ) ) {
+			static::$instance = new static();
+		}
+
+		return static::$instance;
 	}
 
 	public function bootstrap( $wp_path = '.' ) {
