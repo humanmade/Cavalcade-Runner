@@ -344,9 +344,23 @@ class Runner {
 			if ( ! $worker->shutdown() ) {
 				$worker->job->mark_failed();
 				$logger->log_job_failed( $worker->job, 'Failed to shutdown worker.' );
+				/**
+				 * Action after a job has failed.
+				 *
+				 * @param Worker $worker Worker that ran the job.
+				 * @param Job $job Job that failed.
+				 */
+				$this->hooks->run( 'Runner.check_workers.job_failed', $worker, $job );
 			} else {
 				$worker->job->mark_completed();
 				$logger->log_job_completed( $worker->job );
+				/**
+				 * Action after a job has failed.
+				 *
+				 * @param Worker $worker Worker that ran the job.
+				 * @param Job $job Job that completed.
+				 */
+				$this->hooks->run( 'Runner.check_workers.job_completed', $worker, $job );
 			}
 
 			unset( $this->workers[ $id ] );
