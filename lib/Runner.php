@@ -188,6 +188,14 @@ class Runner {
 		 */
 		$dsn = $this->hooks->run( 'Runner.connect_to_db.dsn', $dsn, DB_HOST, DB_NAME, $charset );
 
+		/**
+		 * Filter for PDO options.
+		 *
+		 * @param array $options Options to pass to PDO.
+		 * @param string $dsn DSN for the connection.
+		 * @param string $user User for the connection
+		 * @param string $password Password for the connection.
+		 */
 		$options = $this->hooks->run( 'Runner.connect_to_db.options', array(), $dsn, DB_USER, DB_PASSWORD );
 		$this->db = new PDO( $dsn, DB_USER, DB_PASSWORD, $options );
 
