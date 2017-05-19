@@ -14,6 +14,13 @@ const LOOP_INTERVAL = 1;
 class Runner {
 	public $options = array();
 
+	/**
+	 * Hook system for the Runner.
+	 *
+	 * @var Hooks
+	 */
+	public $hooks;
+
 	protected $db;
 	protected $workers = array();
 	protected $wp_path;
@@ -23,6 +30,7 @@ class Runner {
 			'max_workers' => 4,
 		);
 		$this->options = array_merge( $defaults, $options );
+		$this->hooks = new Hooks();
 	}
 
 	public function bootstrap( $wp_path = '.' ) {
