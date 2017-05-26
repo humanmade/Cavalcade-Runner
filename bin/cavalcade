@@ -12,7 +12,7 @@ include dirname( __DIR__ ) . '/bootstrap.php';
 
 $wp_path = isset( $argv[1] ) ? $argv[1] : '.';
 
-$runner = new Runner();
+$runner = Runner::instance();
 try {
 	$runner->bootstrap( $wp_path );
 	$runner->run();
