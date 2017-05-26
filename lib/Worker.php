@@ -33,20 +33,30 @@ class Worker {
 	}
 
 	/**
+	 * Drain stdout & stderr into properties.
+	 *
+	 * Draining the pipes is needed to avoid workers hanging when they hit the system pipe buffer limits.
+	 */
+	public function drain_pipes() {
+		while ( $data = fread( $this->pipes[1], 1024 ) ) {
+			$this->output .= $data;
+		}
+
+		while ( $data = fread( $this->pipes[2], 1024 ) ) {
+			$this->error_output .= $data;
+		}
+	}
+
+	/**
 	 * Shut down the process
 	 *
 	 * @return bool Did the process run successfully?
 	 */
 	public function shutdown() {
 		printf( '[%d] Worker shutting down...' . PHP_EOL, $this->job->id );
-		// Exhaust the streams
-		while ( ! feof( $this->pipes[1] ) ) {
-			$this->output .= fread( $this->pipes[1], 1024 );
-		}
-		while ( ! feof( $this->pipes[2] ) ) {
-			$this->error_output .= fread( $this->pipes[2], 1024 );
-		}
 
+		// Exhaust the streams
+		$this->drain_pipes();
 		fclose( $this->pipes[1] );
 		fclose( $this->pipes[2] );
 
