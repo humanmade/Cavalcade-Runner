@@ -349,7 +349,16 @@ class Runner {
 		// List of Workers with a changed state
 		$changed_workers = array_merge( array_keys( $pipes_stdout ), array_keys( $pipes_stderr ) );
 
-		$logger = new Logger( $this->db, $this->table_prefix );
+		/**
+		 * Filter for using a custom Logger implementation, instead of the
+		 * default one.
+		 *
+		 * @param object $logger Logger implementation that will be used.
+		 */
+		$logger = $this->hooks->run(
+			'Runner.check_workers.logger',
+			new Logger( $this->db, $this->table_prefix )
+		);
 
 		// Clean up all of the finished workers
 		foreach ( $changed_workers as $id ) {
