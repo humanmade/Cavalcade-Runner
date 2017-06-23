@@ -347,7 +347,7 @@ class Runner {
 		}
 
 		// List of Workers with a changed state
-		$changed_workers = array_merge( array_keys( $pipes_stdout ), array_keys( $pipes_stderr ) );
+		$changed_workers = array_unique( array_merge( array_keys( $pipes_stdout ), array_keys( $pipes_stderr ) ) );
 
 		/**
 		 * Filter for using a custom Logger implementation, instead of the
