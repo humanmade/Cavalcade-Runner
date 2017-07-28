@@ -10,10 +10,18 @@
 			"homepage": "https://hmn.md/"
 		}
 	],
+	"require": {
+		"php": ">=5.6",
+		"ext-pcntl": "*",
+		"ext-pdo_mysql": "*"
+	},
 	"require-dev": {
 		"humanmade/coding-standards": "dev-master"
 	},
 	"bin": [
 		"bin/cavalcade"
-	]
+	],
+	"suggest": {
+        "humanmade/cavalcade": "To use Cavalcade-Runner you need Cavalcade mu-plugin for WordPress too"
+    }
 }
