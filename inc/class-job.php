@@ -66,7 +66,7 @@ class Job {
 	}
 
 	public function mark_completed() {
-		$data = array();
+		$data = [];
 		if ( $this->interval ) {
 			$this->reschedule();
 		} else {

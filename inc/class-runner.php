@@ -12,7 +12,7 @@ use PDOException;
 const LOOP_INTERVAL = 1;
 
 class Runner {
-	public $options = array();
+	public $options = [];
 
 	/**
 	 * Hook system for the Runner.
@@ -22,7 +22,7 @@ class Runner {
 	public $hooks;
 
 	protected $db;
-	protected $workers = array();
+	protected $workers = [];
 	protected $wp_path;
 
 	/**
@@ -32,10 +32,10 @@ class Runner {
 	 */
 	protected static $instance;
 
-	public function __construct( $options = array() ) {
-		$defaults = array(
+	public function __construct( $options = [] ) {
+		$defaults = [
 			'max_workers' => 4,
-		);
+		];
 		$this->options = array_merge( $defaults, $options );
 		$this->hooks = new Hooks();
 	}
@@ -90,11 +90,11 @@ class Runner {
 	}
 
 	public function run() {
-		$running = array();
+		$running = [];
 
 		// Handle SIGTERM calls
-		pcntl_signal( SIGTERM, array( $this, 'terminate' ) );
-		pcntl_signal( SIGINT, array( $this, 'terminate' ) );
+		pcntl_signal( SIGTERM, [ $this, 'terminate' ] );
+		pcntl_signal( SIGINT, [ $this, 'terminate' ] );
 
 		/**
 		 * Action before starting to run.
@@ -127,8 +127,7 @@ class Runner {
 			// Spawn worker
 			try {
 				$this->run_job( $job );
-			}
-			catch ( Exception $e ) {
+			} catch ( Exception $e ) {
 				break;
 			}
 
@@ -196,7 +195,7 @@ class Runner {
 		 * @param string $user User for the connection
 		 * @param string $password Password for the connection.
 		 */
-		$options = $this->hooks->run( 'Runner.connect_to_db.options', array(), $dsn, DB_USER, DB_PASSWORD );
+		$options = $this->hooks->run( 'Runner.connect_to_db.options', [], $dsn, DB_USER, DB_PASSWORD );
 		$this->db = new PDO( $dsn, DB_USER, DB_PASSWORD, $options );
 
 		// Set it up just how we like it
@@ -234,7 +233,7 @@ class Runner {
 		$statement = $this->db->prepare( $query );
 		$statement->execute();
 
-		$data = $statement->fetchObject( __NAMESPACE__ . '\\Job', array( $this->db, $this->table_prefix ) );
+		$data = $statement->fetchObject( __NAMESPACE__ . '\\Job', [ $this->db, $this->table_prefix ] );
 
 		/**
 		 * Filter for the next job.
@@ -257,16 +256,18 @@ class Runner {
 		$cwd = $this->wp_path;
 		printf( '[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args );
 
-		$spec = array(
+		$spec = [
+			//@codingStandardsIgnoreStart
 			// stdin
 			// 0 => null,
+			//@codingStandardsIgnoreEnd
 
 			// stdout
-			1 => array( 'pipe', 'w' ),
+			1 => [ 'pipe', 'w' ],
 
 			// stderr
-			2 => array( 'pipe', 'w' ),
-		);
+			2 => [ 'pipe', 'w' ],
+		];
 		$process = proc_open( $command, $spec, $pipes, $cwd );
 
 		if ( ! is_resource( $process ) ) {
@@ -295,13 +296,13 @@ class Runner {
 		$siteurl = $job->get_site_url();
 
 		$command = sprintf(
-			"wp cavalcade run %d",
+			'wp cavalcade run %d',
 			$job->id
 		);
 
 		if ( $siteurl ) {
 			$command .= sprintf(
-				" --url=%s",
+				' --url=%s',
 				escapeshellarg( $siteurl )
 			);
 		}
@@ -320,7 +321,7 @@ class Runner {
 			return true;
 		}
 
-		$pipes_stdout = $pipes_stderr = array();
+		$pipes_stdout = $pipes_stderr = [];
 		foreach ( $this->workers as $id => $worker ) {
 			$pipes_stdout[ $id ] = $worker->pipes[1];
 			$pipes_stderr[ $id ] = $worker->pipes[2];
