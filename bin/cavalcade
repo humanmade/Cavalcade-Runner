@@ -11,6 +11,20 @@ use Exception;
 
 include dirname( __DIR__ ) . '/bootstrap.php';
 
+// Add help text when -h or --help is used
+$options = getopt( 'h', [ 'help' ] );
+if ( isset( $options['h'] ) || isset( $options['help'] ) ) {
+	$script_name = basename( $argv[0] );
+	$header = <<<EOF
+This is daemon for Cavalcade, a scalable WordPress jobs system.
+More information: https://github.com/humanmade/Cavalcade
+Usage: $script_name /path/to/wordpress
+EOF;
+
+	fwrite( STDERR, $header );
+	exit( 0 );
+}
+
 $wp_path = isset( $argv[1] ) ? $argv[1] : '.';
 
 $runner = Runner::instance();
