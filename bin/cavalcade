@@ -15,12 +15,13 @@ include dirname( __DIR__ ) . '/bootstrap.php';
 $options = getopt( 'h', [ 'help' ] );
 if ( isset( $options['h'] ) || isset( $options['help'] ) ) {
 	$script_name = basename( $argv[0] );
-	fwrite( STDERR, <<<EOF
+	$header = <<<EOF
 This is daemon for Cavalcade, a scalable WordPress jobs system.
 More information: https://github.com/humanmade/Cavalcade
 Usage: $script_name /path/to/wordpress
-EOF
-	);
+EOF;
+
+	fwrite( STDERR, $header );
 	exit( 0 );
 }
 
