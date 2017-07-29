@@ -16,7 +16,7 @@ $options = getopt( 'h', [ 'help' ] );
 if ( isset( $options['h'] ) || isset( $options['help'] ) ) {
 	$script_name = basename( $argv[0] );
 	fwrite( STDERR, <<<EOF
-This is runner script for cavalcade, a better wp-cron.
+This is daemon for Cavalcade, a scalable WordPress jobs system.
 More information: https://github.com/humanmade/Cavalcade
 Usage: $script_name /path/to/wordpress
 EOF
