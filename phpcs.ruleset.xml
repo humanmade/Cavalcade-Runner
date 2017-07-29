@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <ruleset>
 	<!-- Add files to check. -->
-	<file>lib/</file>
-	<file>bin/</file>
-	<file>bootstrap.php</file>
+	<file>inc/</file>
+	<file>bin/cavalcade</file>
+	<exclude-pattern>bootstrap.php</exclude-pattern>
 
 	<!-- Use HM Coding Standards -->
 	<rule ref="vendor/humanmade/coding-standards">
