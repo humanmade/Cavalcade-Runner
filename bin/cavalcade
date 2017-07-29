@@ -12,12 +12,16 @@ use Exception;
 include dirname( __DIR__ ) . '/bootstrap.php';
 
 // Add help text when -h or --help is used
-$options = getopt('h',['help']);
-if ( isset($options['h']) || isset($options['help']) ) {
-	fwrite(STDERR, "This is runner script for cavalcade, a better wp-cron.\n");
-	fwrite(STDERR, "More information: https://github.com/humanmade/Cavalcade\n");
-	fwrite(STDERR, "Usage: ".basename($argv[0])." /path/to/wordpress");
-	exit(0);
+$options = getopt( 'h', [ 'help' ] );
+if ( isset( $options['h'] ) || isset( $options['help'] ) ) {
+	$script_name = basename( $argv[0] );
+	fwrite( STDERR, <<<EOF
+This is runner script for cavalcade, a better wp-cron.
+More information: https://github.com/humanmade/Cavalcade
+Usage: $script_name /path/to/wordpress
+EOF
+	);
+	exit( 0 );
 }
 
 $wp_path = isset( $argv[1] ) ? $argv[1] : '.';
