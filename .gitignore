@@ -1,0 +1,6 @@
+# Ignore OSX garbage
+.DS_Store
+
+# Ignore composer installed libraries and lock
+vendor
+composer.lock

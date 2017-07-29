@@ -7,7 +7,7 @@ namespace HM\Cavalcade\Runner;
 
 class Worker {
 	public $process;
-	public $pipes = array();
+	public $pipes = [];
 	public $job;
 
 	protected $output = '';

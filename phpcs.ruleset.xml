@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset>
+	<!-- Add files to check. -->
+	<file>inc/</file>
+	<file>bin/cavalcade</file>
+	<exclude-pattern>bootstrap.php</exclude-pattern>
+
+	<!-- Use HM Coding Standards -->
+	<rule ref="vendor/humanmade/coding-standards">
+		<!-- Disable dumb DB complaints -->
+		<exclude name="WordPress.WP.PreparedSQL" />
+		<exclude name="WordPress.DB.RestrictedClasses.mysql" />
+		<exclude name="WordPress.DB.RestrictedFunctions.mysql" />
+	</rule>
+</ruleset>
