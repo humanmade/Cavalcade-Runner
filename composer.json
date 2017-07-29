@@ -1,8 +1,7 @@
 {
 	"name": "humanmade/cavalcade-runner",
-	"description": "PHP-Runner for cavalcade, a better wp-cron.",
+	"description": "Daemon for Cavalcade, a scalable WordPress jobs system.",
 	"homepage": "https://github.com/humanmade/Cavalcade-Runner",
-	"type": "library",
 	"license": "GPL-2.0+",
 	"authors": [
 		{
@@ -20,8 +19,5 @@
 	},
 	"bin": [
 		"bin/cavalcade"
-	],
-	"suggest": {
-        "humanmade/cavalcade": "To use Cavalcade-Runner you need Cavalcade mu-plugin for WordPress too"
-    }
+	]
 }
