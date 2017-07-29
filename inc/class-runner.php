@@ -257,10 +257,8 @@ class Runner {
 		printf( '[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args );
 
 		$spec = [
-			//@codingStandardsIgnoreStart
-			// stdin
-			// 0 => null,
-			//@codingStandardsIgnoreEnd
+			// We're intentionally avoiding adding a stdin pipe
+			// stdin 0 => null
 
 			// stdout
 			1 => [ 'pipe', 'w' ],

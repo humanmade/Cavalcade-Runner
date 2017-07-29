@@ -4,9 +4,8 @@
  * Cavalcade
  */
 
-//@codingStandardsIgnoreStart
+//@codingStandardsIgnoreLine
 namespace HM\Cavalcade\Runner;
-//@codingStandardsIgnoreEnd
 
 use Exception;
 
