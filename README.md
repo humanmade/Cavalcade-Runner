@@ -1,7 +1,7 @@
 <table width="100%">
 	<tr>
 		<td align="left" width="70">
-			<strong>Cavalcade</strong><br />
+			<strong>Cavalcade-Runner</strong><br />
 			Daemon for Cavalcade, a scalable WordPress jobs system.
 		</td>
 		<td align="right" width="20%">
