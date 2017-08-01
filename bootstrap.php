@@ -11,7 +11,7 @@ function autoload( $class ) {
 
 	$file = str_replace( __NAMESPACE__ . '\\', '', $class );
 	$file = str_replace( '\\', DIRECTORY_SEPARATOR, $file );
-	include __DIR__ . '/inc/class-' . $file . '.php';
+	include __DIR__ . '/inc/class-' . strtolower( $file ) . '.php';
 }
 
 spl_autoload_register( __NAMESPACE__ . '\\autoload' );
