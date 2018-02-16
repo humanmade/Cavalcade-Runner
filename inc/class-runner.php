@@ -167,6 +167,10 @@ class Runner {
 		throw new SignalInterrupt( 'Terminated by signal', $signal );
 	}
 
+	public function get_wp_path() {
+		return $this->wp_path;
+	}
+
 	protected function connect_to_db() {
 		$charset = defined( 'DB_CHARSET' ) ? DB_CHARSET : 'utf8';
 
