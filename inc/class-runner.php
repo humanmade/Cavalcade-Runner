@@ -201,6 +201,7 @@ class Runner {
 		 */
 		$options = $this->hooks->run( 'Runner.connect_to_db.options', [], $dsn, DB_USER, DB_PASSWORD );
 		$this->db = new PDO( $dsn, DB_USER, DB_PASSWORD, $options );
+		$this->db->exec( 'SET time_zone = "+00:00"' );
 
 		// Set it up just how we like it
 		$this->db->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
