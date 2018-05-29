@@ -128,7 +128,7 @@ class Runner {
 			try {
 				$this->run_job( $job );
 			} catch ( Exception $e ) {
-				trigger_error( sptrinf( 'Unable to run job due to exception: %s', $e->getMessage() ) );
+				trigger_error( sptrinf( 'Unable to run job due to exception: %s', $e->getMessage() ), E_USER_WARNING );
 				break;
 			}
 
