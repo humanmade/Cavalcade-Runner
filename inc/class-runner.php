@@ -128,6 +128,7 @@ class Runner {
 			try {
 				$this->run_job( $job );
 			} catch ( Exception $e ) {
+				trigger_error( sptrinf( 'Unable to run job due to exception: %s', $e->getMessage() ) );
 				break;
 			}
 
@@ -239,7 +240,6 @@ class Runner {
 		$statement->execute();
 
 		$data = $statement->fetchObject( __NAMESPACE__ . '\\Job', [ $this->db, $this->table_prefix ] );
-
 		/**
 		 * Filter for the next job.
 		 *
@@ -274,6 +274,8 @@ class Runner {
 		$process = proc_open( $command, $spec, $pipes, $cwd );
 
 		if ( ! is_resource( $process ) ) {
+			// Set the job to failed as we don't know if the process was able to run the job.
+			$job->mark_failed( 'Unable to prod_open.' );
 			throw new Exception();
 		}
 
