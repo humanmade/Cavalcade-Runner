@@ -128,7 +128,8 @@ class Runner {
 			try {
 				$this->run_job( $job );
 			} catch ( Exception $e ) {
-				trigger_error( sptrinf( 'Unable to run job due to exception: %s', $e->getMessage() ), E_USER_WARNING );
+				trigger_error( sprintf( 'Unable to run job due to exception: %s', $e->getMessage() ), E_USER_WARNING );
+				$job->mark_failed( $e->getMessage() );
 				break;
 			}
 
@@ -275,8 +276,7 @@ class Runner {
 
 		if ( ! is_resource( $process ) ) {
 			// Set the job to failed as we don't know if the process was able to run the job.
-			$job->mark_failed( 'Unable to prod_open.' );
-			throw new Exception();
+			throw new Exception( 'Unable to prod_open.' );
 		}
 
 		// Disable blocking to allow partial stream reads before EOF.
