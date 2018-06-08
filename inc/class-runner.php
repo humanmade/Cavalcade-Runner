@@ -276,7 +276,7 @@ class Runner {
 
 		if ( ! is_resource( $process ) ) {
 			// Set the job to failed as we don't know if the process was able to run the job.
-			throw new Exception( 'Unable to prod_open.' );
+			throw new Exception( 'Unable to proc_open.' );
 		}
 
 		// Disable blocking to allow partial stream reads before EOF.
