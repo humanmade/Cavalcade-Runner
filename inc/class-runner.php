@@ -23,6 +23,7 @@ class Runner {
 	protected $db;
 	protected $workers = [];
 	protected $wp_path;
+	protected $table_prefix;
 
 	/**
 	 * Instance of the runner.
@@ -89,7 +90,7 @@ class Runner {
 	}
 
 	public function run() {
-		$running = [];
+		$last_check_for_orphans = time();
 
 		// Handle SIGTERM calls
 		pcntl_signal( SIGTERM, [ $this, 'terminate' ] );
@@ -113,6 +114,16 @@ class Runner {
 
 			// Check the running workers
 			$this->check_workers();
+
+			// Check for orphans every 5 min
+			if (time() - $last_check_for_orphans >= 5 * 60 * 60) {
+				$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
+				$query .= ' SET status = "waiting"';
+				$query .= ' WHERE status = "running" AND nextrun < DATE_ADD(NOW(), INTERVAL -15 MINUTE)';
+				$statement = $this->db->prepare( $query );
+				$statement->execute();
+				$last_check_for_orphans = time();
+			}
 
 			// Do we have workers to spare?
 			if ( count( $this->workers ) === $this->options['max_workers'] ) {
