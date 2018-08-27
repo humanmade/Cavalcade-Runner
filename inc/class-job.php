@@ -81,7 +81,12 @@ class Job {
 	}
 
 	public function reschedule() {
-		$this->nextrun = date( MYSQL_DATE_FORMAT, strtotime( $this->nextrun ) + $this->interval );
+		$next_run = strtotime( $this->nextrun ) + $this->interval;
+		// Ensure next run time is in the future.
+		if ( $next_run <= time() ) {
+			$next_run = time() + $this->interval;
+		}
+		$this->nextrun = date( MYSQL_DATE_FORMAT, $next_run );
 		$this->status  = 'waiting';
 
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
