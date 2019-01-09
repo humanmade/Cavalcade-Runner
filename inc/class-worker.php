@@ -28,6 +28,7 @@ class Worker {
 		}
 
 		$this->status = proc_get_status( $this->process );
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r
 		printf( '[%d] Worker status: %s' . PHP_EOL, $this->job->id, print_r( $this->status, true ) );
 		return ! ( $this->status['running'] );
 	}
