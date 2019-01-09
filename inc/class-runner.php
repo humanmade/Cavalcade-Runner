@@ -104,6 +104,13 @@ class Runner {
 			// Check for any signals we've received
 			pcntl_signal_dispatch();
 
+			/**
+			 * Action at the start of every loop iteration.
+			 *
+			 * @param Runner $this Instance of the Cavalcade Runner
+			 */
+			$this->hooks->run( 'Runner.run.loop_start', $this );
+
 			// Check the running workers
 			$this->check_workers();
 
