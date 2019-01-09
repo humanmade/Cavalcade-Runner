@@ -107,12 +107,9 @@ class Runner {
 			/**
 			 * Action at the start of every loop iteration.
 			 *
-			 * PDO connection used to query against current state of Cavalcade
-			 * jobs.
-			 *
-			 * @param PDO $db PDO database connection.
+			 * @param Runner $this Instance of the Cavalcade Runner
 			 */
-			$this->hooks->run( 'Runner.run.loop_start', $this->db );
+			$this->hooks->run( 'Runner.run.loop_start', $this );
 
 			// Check the running workers
 			$this->check_workers();
