@@ -7,7 +7,6 @@ namespace HM\Cavalcade\Runner;
 
 use Exception;
 use PDO;
-use PDOException;
 
 const LOOP_INTERVAL = 1;
 
@@ -85,7 +84,7 @@ class Runner {
 		 */
 		$this->table_prefix = $this->hooks->run( 'Runner.bootstrap.table_prefix', $this->table_prefix );
 
-		// Connect!
+		// Connect to the database!
 		$this->connect_to_db();
 	}
 
@@ -347,13 +346,13 @@ class Runner {
 
 		$changed_stdout = stream_select( $pipes_stdout, $a, $b, 0 );
 		if ( $changed_stdout === false ) {
-			// ERROR!
+			// An error occured!
 			return false;
 		}
 
 		$changed_stderr = stream_select( $pipes_stderr, $a, $b, 0 );
 		if ( $changed_stderr === false ) {
-			// ERROR!
+			// An error occured!
 			return false;
 		}
 
