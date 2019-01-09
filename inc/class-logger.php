@@ -2,8 +2,6 @@
 
 namespace HM\Cavalcade\Runner;
 
-use PDO;
-
 class Logger {
 
 	public function __construct( $db, $table_prefix ) {
