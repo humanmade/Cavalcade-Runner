@@ -105,13 +105,13 @@ class Runner {
 			pcntl_signal_dispatch();
 
 			/**
-			* Action at the start of every loop iteration.
-			*
-			* PDO connection used to query against current state of Cavalcade
-			* jobs.
-			*
-			* @param PDO $db PDO database connection.
-			*/
+			 * Action at the start of every loop iteration.
+			 *
+			 * PDO connection used to query against current state of Cavalcade
+			 * jobs.
+			 *
+			 * @param PDO $db PDO database connection.
+			 */
 			$this->hooks->run( 'Runner.run.loop_start', $this->db );
 
 			// Check the running workers
