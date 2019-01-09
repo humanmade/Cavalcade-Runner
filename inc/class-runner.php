@@ -7,7 +7,6 @@ namespace HM\Cavalcade\Runner;
 
 use Exception;
 use PDO;
-use PDOException;
 
 const LOOP_INTERVAL = 1;
 
