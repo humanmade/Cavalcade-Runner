@@ -85,13 +85,17 @@ class Job {
 		$this->status  = 'waiting';
 
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
-		$query .= ' SET status = :status, nextrun = :nextrun';
+		$query .= ' SET status = :status,';
+		$query .= ' nextrun = IF(DATE_ADD(:nextrun, INTERVAL :interval SECOND) < NOW(), DATE_ADD(NOW(), INTERVAL :interval1 SECOND), :nextrun1)';
 		$query .= ' WHERE id = :id';
 
 		$statement = $this->db->prepare( $query );
 		$statement->bindValue( ':id', $this->id );
 		$statement->bindValue( ':status', $this->status );
+		$statement->bindValue( ':interval', $this->interval );
+		$statement->bindValue( ':interval1', $this->interval );
 		$statement->bindValue( ':nextrun', $this->nextrun );
+		$statement->bindValue( ':nextrun1', $this->nextrun );
 		$statement->execute();
 	}
 
