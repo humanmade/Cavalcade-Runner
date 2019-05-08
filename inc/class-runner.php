@@ -213,7 +213,9 @@ class Runner {
 		// Set it up just how we like it
 		$this->db->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
 		$this->db->setAttribute( PDO::ATTR_EMULATE_PREPARES, false );
-		$this->db->exec( 'SET time_zone = "+00:00"' );
+
+		$timezone = date_default_timezone_get();
+		$this->db->exec( "SET time_zone = '$timezone'" );
 
 		/**
 		 * Action after connecting to the database.
