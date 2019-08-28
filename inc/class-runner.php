@@ -94,6 +94,7 @@ class Runner {
 		// Handle SIGTERM calls
 		pcntl_signal( SIGTERM, [ $this, 'terminate' ] );
 		pcntl_signal( SIGINT, [ $this, 'terminate' ] );
+		pcntl_signal( SIGQUIT, [ $this, 'terminate' ] );
 
 		/**
 		 * Action before starting to run.
