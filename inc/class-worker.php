@@ -39,11 +39,11 @@ class Worker {
 	 * Draining the pipes is needed to avoid workers hanging when they hit the system pipe buffer limits.
 	 */
 	public function drain_pipes() {
-		while ( $data = fread( $this->pipes[1], 1024 ) ) {
+		while ( $data = fread( $this->pipes[1], 1024 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
 			$this->output .= $data;
 		}
 
-		while ( $data = fread( $this->pipes[2], 1024 ) ) {
+		while ( $data = fread( $this->pipes[2], 1024 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
 			$this->error_output .= $data;
 		}
 	}
@@ -58,8 +58,8 @@ class Worker {
 
 		// Exhaust the streams
 		$this->drain_pipes();
-		fclose( $this->pipes[1] );
-		fclose( $this->pipes[2] );
+		fclose( $this->pipes[1] );  // phpcs:ignore WordPress.WP.AlternativeFunctions
+		fclose( $this->pipes[2] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 
 		printf( '[%d] Worker out: %s' . PHP_EOL, $this->job->id, $this->output );
 		printf( '[%d] Worker err: %s' . PHP_EOL, $this->job->id, $this->error_output );
