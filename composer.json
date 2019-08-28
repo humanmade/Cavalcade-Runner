@@ -15,7 +15,7 @@
 		"ext-pdo_mysql": "*"
 	},
 	"require-dev": {
-		"humanmade/coding-standards": "dev-master"
+		"humanmade/coding-standards": "0.7.0"
 	},
 	"bin": [
 		"bin/cavalcade"

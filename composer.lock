@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c7a3c6bed15bc28a5548d74013f310f0",
+    "content-hash": "c1db8ecbd796a6261a4763f09923c6d9",
     "packages": [],
     "packages-dev": [
         {
@@ -167,16 +167,16 @@
         },
         {
             "name": "humanmade/coding-standards",
-            "version": "dev-master",
+            "version": "v0.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/humanmade/coding-standards.git",
-                "reference": "811b869a226e54d05fa949e9722606c993a262f4"
+                "reference": "da7bb6d20ed35760c7f42e8a2aa31058b4c0040f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/humanmade/coding-standards/zipball/811b869a226e54d05fa949e9722606c993a262f4",
-                "reference": "811b869a226e54d05fa949e9722606c993a262f4",
+                "url": "https://api.github.com/repos/humanmade/coding-standards/zipball/da7bb6d20ed35760c7f42e8a2aa31058b4c0040f",
+                "reference": "da7bb6d20ed35760c7f42e8a2aa31058b4c0040f",
                 "shasum": ""
             },
             "require": {
@@ -197,20 +197,20 @@
                 "GPL-2.0-or-later"
             ],
             "description": "Human Made coding standards",
-            "time": "2019-07-29T17:25:44+00:00"
+            "time": "2019-06-05T15:16:09+00:00"
         },
         {
             "name": "phpcompatibility/php-compatibility",
-            "version": "9.2.0",
+            "version": "9.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHPCompatibility/PHPCompatibility.git",
-                "reference": "3db1bf1e28123fd574a4ae2e9a84072826d51b5e"
+                "reference": "06cc8d2c2ed62a70f52963dbdf5eaa1ec0fe34c5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHPCompatibility/PHPCompatibility/zipball/3db1bf1e28123fd574a4ae2e9a84072826d51b5e",
-                "reference": "3db1bf1e28123fd574a4ae2e9a84072826d51b5e",
+                "url": "https://api.github.com/repos/PHPCompatibility/PHPCompatibility/zipball/06cc8d2c2ed62a70f52963dbdf5eaa1ec0fe34c5",
+                "reference": "06cc8d2c2ed62a70f52963dbdf5eaa1ec0fe34c5",
                 "shasum": ""
             },
             "require": {
@@ -234,10 +234,6 @@
             ],
             "authors": [
                 {
-                    "name": "Contributors",
-                    "homepage": "https://github.com/PHPCompatibility/PHPCompatibility/graphs/contributors"
-                },
-                {
                     "name": "Wim Godden",
                     "role": "lead",
                     "homepage": "https://github.com/wimg"
@@ -246,6 +242,10 @@
                     "name": "Juliette Reinders Folmer",
                     "role": "lead",
                     "homepage": "https://github.com/jrfnl"
+                },
+                {
+                    "name": "Contributors",
+                    "homepage": "https://github.com/PHPCompatibility/PHPCompatibility/graphs/contributors"
                 }
             ],
             "description": "A set of sniffs for PHP_CodeSniffer that checks for PHP cross-version compatibility.",
@@ -255,7 +255,7 @@
                 "phpcs",
                 "standards"
             ],
-            "time": "2019-06-27T19:58:56+00:00"
+            "time": "2019-08-28T15:29:06+00:00"
         },
         {
             "name": "phpcompatibility/phpcompatibility-paragonie",
@@ -454,9 +454,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "humanmade/coding-standards": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
