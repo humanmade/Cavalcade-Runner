@@ -7,7 +7,6 @@ namespace HM\Cavalcade\Runner;
 
 use Exception;
 use PDO;
-use PDOException;
 
 const LOOP_INTERVAL = 1;
 
@@ -85,7 +84,7 @@ class Runner {
 		 */
 		$this->table_prefix = $this->hooks->run( 'Runner.bootstrap.table_prefix', $this->table_prefix );
 
-		// Connect!
+		// Connect to the database!
 		$this->connect_to_db();
 	}
 
@@ -95,6 +94,7 @@ class Runner {
 		// Handle SIGTERM calls
 		pcntl_signal( SIGTERM, [ $this, 'terminate' ] );
 		pcntl_signal( SIGINT, [ $this, 'terminate' ] );
+		pcntl_signal( SIGQUIT, [ $this, 'terminate' ] );
 
 		/**
 		 * Action before starting to run.
@@ -104,6 +104,13 @@ class Runner {
 		while ( true ) {
 			// Check for any signals we've received
 			pcntl_signal_dispatch();
+
+			/**
+			 * Action at the start of every loop iteration.
+			 *
+			 * @param Runner $this Instance of the Cavalcade Runner
+			 */
+			$this->hooks->run( 'Runner.run.loop_start', $this );
 
 			// Check the running workers
 			$this->check_workers();
@@ -128,6 +135,8 @@ class Runner {
 			try {
 				$this->run_job( $job );
 			} catch ( Exception $e ) {
+				trigger_error( sprintf( 'Unable to run job due to exception: %s', $e->getMessage() ), E_USER_WARNING );
+				$job->mark_failed( $e->getMessage() );
 				break;
 			}
 
@@ -239,7 +248,6 @@ class Runner {
 		$statement->execute();
 
 		$data = $statement->fetchObject( __NAMESPACE__ . '\\Job', [ $this->db, $this->table_prefix ] );
-
 		/**
 		 * Filter for the next job.
 		 *
@@ -274,7 +282,8 @@ class Runner {
 		$process = proc_open( $command, $spec, $pipes, $cwd );
 
 		if ( ! is_resource( $process ) ) {
-			throw new Exception();
+			// Set the job to failed as we don't know if the process was able to run the job.
+			throw new Exception( 'Unable to proc_open.' );
 		}
 
 		// Disable blocking to allow partial stream reads before EOF.
@@ -335,13 +344,13 @@ class Runner {
 
 		$changed_stdout = stream_select( $pipes_stdout, $a, $b, 0 );
 		if ( $changed_stdout === false ) {
-			// ERROR!
+			// An error occured!
 			return false;
 		}
 
 		$changed_stderr = stream_select( $pipes_stderr, $a, $b, 0 );
 		if ( $changed_stderr === false ) {
-			// ERROR!
+			// An error occured!
 			return false;
 		}
 

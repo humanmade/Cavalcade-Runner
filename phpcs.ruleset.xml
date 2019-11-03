@@ -11,5 +11,8 @@
 		<exclude name="WordPress.WP.PreparedSQL" />
 		<exclude name="WordPress.DB.RestrictedClasses.mysql" />
 		<exclude name="WordPress.DB.RestrictedFunctions.mysql" />
+		<exclude name="WordPress.DB.RestrictedFunctions.mysql_mysql_date_format" />
+		<exclude name="Squiz.PHP.DisallowMultipleAssignments.Found" />
+		<exclude name="WordPress.PHP.DiscouragedPHPFunctions.system_calls_proc_open" />
 	</rule>
 </ruleset>
