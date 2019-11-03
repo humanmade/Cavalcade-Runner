@@ -3,6 +3,9 @@
 namespace HM\Cavalcade\Runner;
 
 use PDO;
+use DateTime;
+use DateTimeZone;
+use DateInterval;
 
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
 
@@ -81,7 +84,10 @@ class Job {
 	}
 
 	public function reschedule() {
-		$this->nextrun = date( MYSQL_DATE_FORMAT, strtotime( $this->nextrun ) + $this->interval );
+		$date = new DateTime( $this->nextrun, new DateTimeZone( 'UTC' ) );
+		$date->add( new DateInterval( 'PT' . $this->interval . 'S' ) );
+		$this->nextrun = $date->format( MYSQL_DATE_FORMAT );
+
 		$this->status  = 'waiting';
 
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
