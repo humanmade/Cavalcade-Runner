@@ -2,10 +2,10 @@
 
 namespace HM\Cavalcade\Runner;
 
-use PDO;
+use DateInterval;
 use DateTime;
 use DateTimeZone;
-use DateInterval;
+use PDO;
 
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
 
