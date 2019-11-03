@@ -88,7 +88,7 @@ class Job {
 		$date->add( new DateInterval( 'PT' . $this->interval . 'S' ) );
 		$this->nextrun = $date->format( MYSQL_DATE_FORMAT );
 
-		$this->status  = 'waiting';
+		$this->status = 'waiting';
 
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
 		$query .= ' SET status = :status, nextrun = :nextrun';
