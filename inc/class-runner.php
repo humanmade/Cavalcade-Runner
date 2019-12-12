@@ -160,7 +160,7 @@ class Runner {
 		// Wait and clean up
 		while ( ! empty( $this->workers ) ) {
 			$this->check_workers();
-			sleep(1);
+			usleep(100000);
 		}
 
 		/**
