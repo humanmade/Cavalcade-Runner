@@ -3,4 +3,3 @@
 
 # Ignore composer installed libraries and lock
 vendor
-composer.lock
