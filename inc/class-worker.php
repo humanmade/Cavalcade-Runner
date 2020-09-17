@@ -58,7 +58,7 @@ class Worker {
 
 		// Exhaust the streams
 		$this->drain_pipes();
-		fclose( $this->pipes[1] );  // phpcs:ignore WordPress.WP.AlternativeFunctions
+		fclose( $this->pipes[1] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		fclose( $this->pipes[2] ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 
 		printf( '[%d] Worker out: %s' . PHP_EOL, $this->job->id, $this->output );
