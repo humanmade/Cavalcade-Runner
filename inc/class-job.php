@@ -85,7 +85,7 @@ class Job {
 
 	public function reschedule() {
 		$date = new DateTime( $this->nextrun, new DateTimeZone( 'UTC' ) );
-		$date->add( new DateInterval( 'PT' . $this->interval . 'S' ) );
+		$date->add( new DateInterval( "PT{$this->interval}S" ) );
 		$this->nextrun = $date->format( MYSQL_DATE_FORMAT );
 
 		$this->status = 'waiting';
