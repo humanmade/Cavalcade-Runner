@@ -392,8 +392,9 @@ class Runner {
 				 *
 				 * @param Worker $worker Worker that ran the job.
 				 * @param Job $job Job that failed.
+				 * @param Logger $logger Logger for the job.
 				 */
-				$this->hooks->run( 'Runner.check_workers.job_failed', $worker, $worker->job );
+				$this->hooks->run( 'Runner.check_workers.job_failed', $worker, $worker->job, $logger );
 			} else {
 				$worker->job->mark_completed();
 				$logger->log_job_completed( $worker->job );
@@ -403,8 +404,9 @@ class Runner {
 				 *
 				 * @param Worker $worker Worker that ran the job.
 				 * @param Job $job Job that completed.
+				 * @param Logger $logger Logger for the job.
 				 */
-				$this->hooks->run( 'Runner.check_workers.job_completed', $worker, $worker->job );
+				$this->hooks->run( 'Runner.check_workers.job_completed', $worker, $worker->job, $logger );
 			}
 
 			unset( $this->workers[ $id ] );
