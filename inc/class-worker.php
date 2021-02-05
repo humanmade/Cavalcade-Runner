@@ -10,9 +10,9 @@ class Worker {
 	public $pipes = [];
 	public $job;
 
-	protected $output = '';
-	protected $error_output = '';
-	protected $status = null;
+	public $output = '';
+	public $error_output = '';
+	public $status = null;
 
 	public function __construct( $process, $pipes, Job $job ) {
 		$this->process = $process;
