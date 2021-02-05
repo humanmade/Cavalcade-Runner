@@ -2,6 +2,7 @@ language: php
 php:
   - '7.2'
 install:
+  - composer self-update --1
   - composer install
 script:
   - vendor/bin/phpcs --standard=phpcs.ruleset.xml .
