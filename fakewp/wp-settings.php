@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Fake WP loader file
  *
