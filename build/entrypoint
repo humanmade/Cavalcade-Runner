@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -eux
+
+step="$1"
+
+if [ "$step" == 'test' ]; then
+  composer --dev install
+  vendor/bin/phpcbf
+elif [ "$step" == 'package' ]; then
+  composer --no-dev install
+  build/package
+else
+  exit 1
+fi

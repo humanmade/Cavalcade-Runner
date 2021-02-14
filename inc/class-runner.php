@@ -59,15 +59,18 @@ class Runner
     public function bootstrap($wp_path = '.')
     {
         // Check some requirements first
-        if (! function_exists('pcntl_signal')) {
+        if (!function_exists('pcntl_signal')) {
             throw new Exception('pcntl extension is required');
         }
 
         $config_path = realpath($wp_path . '/wp-config.php');
-        if (! file_exists($config_path)) {
+        if (!file_exists($config_path)) {
             $config_path = realpath($wp_path . '/../wp-config.php');
-            if (! file_exists($config_path)) {
-                throw new Exception(sprintf('Could not find config file at %s', realpath($wp_path) . '/wp-config.php or next level up.'));
+            if (!file_exists($config_path)) {
+                throw new Exception(sprintf(
+                    'Could not find config file at %s',
+                    realpath($wp_path) . '/wp-config.php or next level up.'
+                ));
             }
         }
 
@@ -75,7 +78,7 @@ class Runner
 
         // Load WP config
         define('ABSPATH', dirname(__DIR__) . '/fakewp/');
-        if (! isset($_SERVER['HTTP_HOST'])) {
+        if (!isset($_SERVER['HTTP_HOST'])) {
             $_SERVER['HTTP_HOST'] = 'cavalcade.example';
         }
 
@@ -98,9 +101,9 @@ class Runner
         $running = [];
 
         // Handle SIGTERM calls
-        pcntl_signal(SIGTERM, [ $this, 'terminate' ]);
-        pcntl_signal(SIGINT, [ $this, 'terminate' ]);
-        pcntl_signal(SIGQUIT, [ $this, 'terminate' ]);
+        pcntl_signal(SIGTERM, [$this, 'terminate']);
+        pcntl_signal(SIGINT, [$this, 'terminate']);
+        pcntl_signal(SIGQUIT, [$this, 'terminate']);
 
         /**
          * Action before starting to run.
@@ -163,9 +166,13 @@ class Runner
          */
         $this->hooks->run('Runner.terminate.will_terminate', $signal);
 
-        printf('Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL, $signal, count($this->workers));
+        printf(
+            'Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL,
+            $signal,
+            count($this->workers)
+        );
         // Wait and clean up
-        while (! empty($this->workers)) {
+        while (!empty($this->workers)) {
             $this->check_workers();
             usleep(100000);
         }
@@ -258,7 +265,7 @@ class Runner
         $statement = $this->db->prepare($query);
         $statement->execute();
 
-        $data = $statement->fetchObject(__NAMESPACE__ . '\\Job', [ $this->db, $this->table_prefix ]);
+        $data = $statement->fetchObject(__NAMESPACE__ . '\\Job', [$this->db, $this->table_prefix]);
         /**
          * Filter for the next job.
          *
@@ -271,7 +278,7 @@ class Runner
     {
         // Mark the job as started
         $has_lock = $job->acquire_lock();
-        if (! $has_lock) {
+        if (!$has_lock) {
             // Couldn't get lock, looks like another supervisor already started
             return;
         }
@@ -286,14 +293,14 @@ class Runner
             // stdin 0 => null
 
             // stdout
-            1 => [ 'pipe', 'w' ],
+            1 => ['pipe', 'w'],
 
             // stderr
-            2 => [ 'pipe', 'w' ],
+            2 => ['pipe', 'w'],
         ];
         $process = proc_open($command, $spec, $pipes, $cwd);
 
-        if (! is_resource($process)) {
+        if (!is_resource($process)) {
             // Set the job to failed as we don't know if the process was able to run the job.
             throw new Exception('Unable to proc_open.');
         }
@@ -349,8 +356,8 @@ class Runner
 
         $pipes_stdout = $pipes_stderr = [];
         foreach ($this->workers as $id => $worker) {
-            $pipes_stdout[ $id ] = $worker->pipes[1];
-            $pipes_stderr[ $id ] = $worker->pipes[2];
+            $pipes_stdout[$id] = $worker->pipes[1];
+            $pipes_stderr[$id] = $worker->pipes[2];
         }
 
         // Grab all the pipes ready to close
@@ -389,14 +396,14 @@ class Runner
 
         // Clean up all of the finished workers
         foreach ($changed_workers as $id) {
-            $worker = $this->workers[ $id ];
+            $worker = $this->workers[$id];
             $worker->drain_pipes();
-            if (! $worker->is_done()) {
+            if (!$worker->is_done()) {
                 // Process hasn't exited yet, keep rocking on
                 continue;
             }
 
-            if (! $worker->shutdown()) {
+            if (!$worker->shutdown()) {
                 $worker->job->mark_failed();
                 $logger->log_job_failed($worker->job, 'Failed to shutdown worker.');
 
@@ -422,7 +429,7 @@ class Runner
                 $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job, $logger);
             }
 
-            unset($this->workers[ $id ]);
+            unset($this->workers[$id]);
         }
     }
 }

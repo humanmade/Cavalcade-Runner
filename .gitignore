@@ -1,5 +1,4 @@
 .DS_Store
 .vscode/
-
-# Ignore composer installed libraries and lock
-vendor
+vendor/
+work/

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -eu
+
+exec docker-compose -f build/docker-compose.yml run php package

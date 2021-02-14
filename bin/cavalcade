@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 /**
  * Cavalcade
  */
@@ -13,28 +14,28 @@ include dirname(__DIR__) . '/bootstrap.php';
 // Add help text when -h or --help is used
 $options = getopt('h', ['help']);
 if (isset($options['h']) || isset($options['help'])) {
-	$script_name = basename($argv[0]);
-	$header = <<<EOF
+    $script_name = basename($argv[0]);
+    $header = <<<EOF
 This is daemon for Cavalcade, a scalable WordPress jobs system.
 More information: https://github.com/humanmade/Cavalcade
 Usage: $script_name /path/to/wordpress
 EOF;
 
-	fwrite(STDERR, $header);
-	exit(0);
+    fwrite(STDERR, $header);
+    exit(0);
 }
 
 $wp_path = isset($argv[1]) ? $argv[1] : '.';
 
 $runner = Runner::instance();
 try {
-	$runner->bootstrap($wp_path);
-	$runner->run();
+    $runner->bootstrap($wp_path);
+    $runner->run();
 } catch (SignalInterrupt $e) {
-	printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
-	exit(0);
+    printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
+    exit(0);
 } catch (Exception $e) {
-	fwrite(STDERR, sprintf('Error: %s' . PHP_EOL, $e->getMessage()));
-	fwrite(STDERR, $e->getTraceAsString() . PHP_EOL);
-	exit(1);
+    fwrite(STDERR, sprintf('Error: %s' . PHP_EOL, $e->getMessage()));
+    fwrite(STDERR, $e->getTraceAsString() . PHP_EOL);
+    exit(1);
 }
