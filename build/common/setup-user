@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -eux
+
+uid="$1"
+gid="$2"
+
+addgroup --gid "${gid}" hostuser
+useradd -u "${uid}" -g "${gid}" hostuser
+
+echo 'hostuser ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/passwordless

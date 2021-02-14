@@ -39,8 +39,8 @@ class Job
             return false;
         }
 
-        $query = "SELECT domain, path FROM {$this->table_prefix}blogs";
-        $query .= ' WHERE blog_id = :site';
+        $query = "SELECT domain, path FROM {$this->table_prefix}blogs
+                  WHERE blog_id = :site";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':site', $this->site);
@@ -60,9 +60,9 @@ class Job
      */
     public function acquire_lock()
     {
-        $query = "UPDATE {$this->table_prefix}cavalcade_jobs";
-        $query .= ' SET status = "running"';
-        $query .= ' WHERE status = "waiting" AND id = :id';
+        $query = "UPDATE {$this->table_prefix}cavalcade_jobs
+                  SET status = \"running\"
+                  WHERE status = \"waiting\" AND id = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);
@@ -78,9 +78,9 @@ class Job
         if ($this->interval) {
             $this->reschedule();
         } else {
-            $query = "UPDATE {$this->table_prefix}cavalcade_jobs";
-            $query .= ' SET status = "completed"';
-            $query .= ' WHERE id = :id';
+            $query = "UPDATE {$this->table_prefix}cavalcade_jobs
+                      SET status = \"completed\"
+                      WHERE id = :id";
 
             $statement = $this->db->prepare($query);
             $statement->bindValue(':id', $this->id);
@@ -96,9 +96,9 @@ class Job
 
         $this->status = 'waiting';
 
-        $query = "UPDATE {$this->table_prefix}cavalcade_jobs";
-        $query .= ' SET status = :status, nextrun = :nextrun';
-        $query .= ' WHERE id = :id';
+        $query = "UPDATE {$this->table_prefix}cavalcade_jobs
+                  SET status = :status, nextrun = :nextrun
+                  WHERE id = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);
@@ -114,9 +114,9 @@ class Job
      */
     public function mark_failed($message = '')
     {
-        $query = "UPDATE {$this->table_prefix}cavalcade_jobs";
-        $query .= ' SET status = "failed"';
-        $query .= ' WHERE id = :id';
+        $query = "UPDATE {$this->table_prefix}cavalcade_jobs
+                  SET status = \"failed\"
+                  WHERE id = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);

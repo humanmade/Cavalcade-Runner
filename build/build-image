@@ -2,4 +2,5 @@
 
 set -eu
 
+source build/envs.sh
 exec docker-compose -f build/docker-compose.yml build

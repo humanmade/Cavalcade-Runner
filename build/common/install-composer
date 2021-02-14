@@ -16,4 +16,4 @@ then
     exit 1
 fi
 
-exec php "$composer_php_tmp" --1 --quiet --install-dir=/usr/local/bin --filename=composer
+exec php "$composer_php_tmp" --quiet --install-dir=/usr/local/bin --filename=composer

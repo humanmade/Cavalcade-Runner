@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -eu
+
+restart=work/restart.fifo
+
+cd /workspace
+sudo chown hostuser: /www
+sudo rm -fr /www/*
+sudo cp -aR /wp/* /www
+composer --no-cache install
+mkdir -p work
+
+cp /www/wp-config-sample.php /www/wp-config.php
+wp='wp --quiet --path=/www config set'
+$wp table_prefix wptests_
+$wp DB_NAME      wordpress
+$wp DB_USER      root
+$wp DB_PASSWORD  root
+$wp DB_HOST      db
+if [ "$WP_MULTISITE" -eq 1 ]; then
+  multisite=true
+else
+  multisite=false
+fi
+$wp MULTISITE "$multisite" --raw --type=constant
+
+cp test/mu-plugins-test-hook.php /www/wp-content/mu-plugins/test-hook.php
+
+wait-for-it -q db:3306
+build/common/wait-for-file "$restart"
+trap "echo exit > $restart" EXIT
+vendor/bin/phpunit --log-junit work/test-result.xml

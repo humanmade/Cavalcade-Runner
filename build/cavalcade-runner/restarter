@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -eux
+
+signal_file=work/restart.fifo
+
+command="$1"
+mkdir -p work
+mkfifo "$signal_file"
+trap "rm -f $signal_file" EXIT
+build/cavalcade-runner/wait-for-sql 'DESCRIBE wptests_cavalcade_jobs;'
+pid=0
+while [ "$(cat "$signal_file")" != exit ]; do
+  if [ "$pid" -ne 0 ]; then
+    kill "$pid"
+  fi
+  $command &
+  pid="$!"
+done
+
+if [ "$pid" -ne 0 ]; then
+  kill "$pid"
+fi

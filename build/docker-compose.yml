@@ -1,8 +1,51 @@
 version: '3.9'
 services:
-  php:
+  wordpress:
     build:
       context: $PWD
-      dockerfile: build/Dockerfile
+      dockerfile: build/wordpress/Dockerfile
+      args:
+        uid: $USER_ID
+        gid: $GROUP_ID
+        php_version: $PHP_VERSION
+        wp_version: $WP_VERSION
+        cavalcade_version: $CAVALCADE_VERSION
+    environment:
+    - WP_MULTISITE=$WP_MULTISITE
+    user: $USER_ID:$GROUP_ID
     volumes:
     - $PWD:/workspace
+    - www:/www
+    depends_on:
+    - cavalcade-runner
+    - db
+  cavalcade-runner:
+    build:
+      context: $PWD
+      dockerfile: build/cavalcade-runner/Dockerfile
+      args:
+        uid: $USER_ID
+        gid: $GROUP_ID
+        php_version: $PHP_VERSION
+    command:
+    - restartable
+    user: $USER_ID:$GROUP_ID
+    volumes:
+    - $PWD:/workspace
+    - www:/www:ro
+    depends_on:
+    - db
+  db:
+    image: mysql:5.7
+    command:
+    - --log-output=file
+    - --general-log=on
+    - --general-log-file=/var/log/mysql/general.log
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wordpress
+    user: $USER_ID:$GROUP_ID
+    volumes:
+    - $PWD/work/mysql:/var/log/mysql
+volumes:
+  www:

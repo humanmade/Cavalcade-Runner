@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -eux
+
+wp_version="$1"
+cavalcade_version="$2"
+
+mkdir -p /wp /wp-develop /wp-tests
+
+if [ "$wp_version" == trunk ]; then
+    tmp="$(mktemp)"
+    tmpd="$(mktemp -d)"
+    trap "rm -fr $tmp $tmpd" EXIT
+    curl -fsSL https://wordpress.org/nightly-builds/wordpress-latest.zip > "$tmp"
+    unzip -q -d "$tmpd" "$tmp"
+    mv "$tmpd"/wordpress/* /wp
+else
+    curl -fsSL https://wordpress.org/latest.tar.gz | tar --strip-components=1 -zxmC /wp
+fi
+
+tmp_caval="$(mktemp)"
+tmpd_caval="$(mktemp -d)"
+trap "rm -fr $tmp_caval $tmpd_caval" EXIT
+curl -fsSL \
+  "https://github.com/tarosky/Cavalcade/releases/download/build-5/cavalcade.build-$cavalcade_version.zip" \
+  > "$tmp_caval"
+unzip -q -d "$tmpd_caval" "$tmp_caval"
+mkdir -p /wp/wp-content/mu-plugins
+mv "$tmpd_caval/cavalcade" /wp/wp-content/mu-plugins
+printf "<?php\nrequire_once __DIR__ . '/cavalcade/plugin.php';" > /wp/wp-content/mu-plugins/cavalcade.php
+
+chown -R hostuser: /wp
+
+if [ "$wp_version" == trunk ]; then
+    echo master > /wp_version
+else
+    php -r 'require "/wp/wp-includes/version.php"; echo $wp_version;' > /wp_version
+fi
+
+curl -fsSL https://github.com/WordPress/wordpress-develop/archive/$(< /wp_version).tar.gz | tar --strip-components=1 -zxmC /wp-develop
+
+cp -a /wp-develop/tests/phpunit/{includes,data} /wp-tests
+cp -a /wp-develop/wp-tests-config-sample.php /wp-tests/wp-tests-config.php
+
+sed -i "s:dirname( __FILE__ ) . '/src/':'/www/':" /wp-tests/wp-tests-config.php
+sed -i 's/youremptytestdbnamehere/wordpress/' /wp-tests/wp-tests-config.php
+sed -i 's/yourusernamehere/root/' /wp-tests/wp-tests-config.php
+sed -i 's/yourpasswordhere/root/' /wp-tests/wp-tests-config.php
+sed -i 's/localhost/db/' /wp-tests/wp-tests-config.php
