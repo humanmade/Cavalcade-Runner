@@ -69,7 +69,7 @@ class Job
         $statement->execute();
 
         $rows = $statement->rowCount();
-        return ( $rows === 1 );
+        return ($rows === 1);
     }
 
     public function mark_completed()

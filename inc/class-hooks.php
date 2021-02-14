@@ -25,8 +25,8 @@ class Hooks
      */
     public function register($hook, $callback, $priority = 10)
     {
-        $this->callbacks[ $hook ][ $priority ][] = $callback;
-        ksort($this->callbacks[ $hook ]);
+        $this->callbacks[$hook][$priority][] = $callback;
+        ksort($this->callbacks[$hook]);
     }
 
     /**
@@ -39,10 +39,10 @@ class Hooks
      */
     public function run($hook, $value = null, ...$args)
     {
-        if (! isset($this->callbacks[ $hook ])) {
+        if (!isset($this->callbacks[$hook])) {
             return $value;
         }
-        foreach ($this->callbacks[ $hook ] as $priority => $callbacks) {
+        foreach ($this->callbacks[$hook] as $priority => $callbacks) {
             foreach ($callbacks as $callback) {
                 $value = $callback($value, ...$args);
             }

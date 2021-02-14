@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+    - forked/master
+  push:
+    branches:
+    - forked/master
+    - issue/*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: build/build-image
+    - run: build/run-test
+    - run: build/run-package
+    - uses: actions/upload-artifact@v2
+      with:
+        name: artifact
+        path: work/cavalcade-runner.zip
+
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/forked/master'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: artifact
+    - name: Show artifacts
+      run: ls -laR ./
+    - name: Generate build number
+      uses: einaregilsson/build-number@v3
+      with:
+        token: ${{secrets.GITHUB_TOKEN}}
+        prefix: build_number_generator
+    - name: Print new build number
+      run: echo "Build number is $BUILD_NUMBER"
+    - id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        tag_name: build-${{env.BUILD_NUMBER}}
+        release_name: Build ${{env.BUILD_NUMBER}}
+        draft: false
+        prerelease: false
+    - uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      with:
+        upload_url: ${{steps.create_release.outputs.upload_url}}
+        asset_path: ./cavalcade-runner.zip
+        asset_name: cavalcade-runner.build-${{env.BUILD_NUMBER}}.zip
+        asset_content_type: application/zip

@@ -1,0 +1,8 @@
+version: '3.9'
+services:
+  php:
+    build:
+      context: $PWD
+      dockerfile: build/Dockerfile
+    volumes:
+    - $PWD:/workspace

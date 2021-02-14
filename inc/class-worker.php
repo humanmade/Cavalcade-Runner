@@ -25,16 +25,16 @@ class Worker
 
     public function is_done()
     {
-        if (isset($this->status['running']) && ! $this->status['running']) {
+        if (isset($this->status['running']) && !$this->status['running']) {
             // Already exited, so don't try and fetch again
             // (Exit code is only valid the first time after it exits)
-            return ! ( $this->status['running'] );
+            return !($this->status['running']);
         }
 
         $this->status = proc_get_status($this->process);
-		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r
         printf('[%d] Worker status: %s' . PHP_EOL, $this->job->id, print_r($this->status, true));
-        return ! ( $this->status['running'] );
+        return !($this->status['running']);
     }
 
     /**
@@ -75,6 +75,6 @@ class Worker
         proc_close($this->process);
         unset($this->process);
 
-        return ( $this->status['exitcode'] === 0 );
+        return ($this->status['exitcode'] === 0);
     }
 }

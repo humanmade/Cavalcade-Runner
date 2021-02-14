@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -eu
+
+composer_php_tmp="$(mktemp)"
+trap "rm -f $composer_php_tmp" EXIT
+
+expected_checksum="$(curl -fsSL https://composer.github.io/installer.sig)"
+
+curl -fsSL https://getcomposer.org/installer > "$composer_php_tmp"
+actual_checksum="$(sha384sum "$composer_php_tmp" | cut -d' ' -f1)"
+
+if [ "$expected_checksum" != "$actual_checksum" ]
+then
+    >&2 echo 'ERROR: Invalid installer checksum'
+    exit 1
+fi
+
+exec php "$composer_php_tmp" --1 --quiet --install-dir=/usr/local/bin --filename=composer
