@@ -15,7 +15,8 @@ services:
     user: $USER_ID:$GROUP_ID
     volumes:
     - $PWD:/workspace
-    - www:/www
+    - www:/www:ro
+    - www:/www-work
     depends_on:
     - cavalcade-runner
     - db

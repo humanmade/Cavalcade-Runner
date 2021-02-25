@@ -2,12 +2,10 @@
 
 namespace HM\Cavalcade\Runner\Tests;
 
-use DateTime;
-
 const JOB = 'test_job';
 const FAILED_JOB = 'failed_test_job';
-const WPTEST_WPCLI_FIFO = 'work/wptest-wpcli.fifo';
-const WPCLI_WPTEST_FIFO = 'work/wpcli-wptest.fifo';
+const WPTEST_WPCLI_FIFO = '/workspace/work/wptest-wpcli.fifo';
+const WPCLI_WPTEST_FIFO = '/workspace/work/wpcli-wptest.fifo';
 
 class Test_Job extends CavalcadeRunner_TestCase
 {
@@ -59,7 +57,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::wait_wpcli_blocking();
         self::go_wpcli_blocking();
-        sleep(2);
+        sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
         $this->assertEquals(STATUS_RUNNING, file_get_contents(ACTUAL_STATUS));
@@ -79,7 +77,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::wait_wpcli_blocking();
         self::go_wpcli_blocking();
-        sleep(2);
+        sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
         $this->assertEquals(STATUS_RUNNING, file_get_contents(ACTUAL_STATUS));
@@ -105,7 +103,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::go_wpcli_blocking();
 
-        sleep(2);
+        sleep(3);
 
         $job = self::get_job(JOB);
         $this->assertEquals(STATUS_COMPLETED, $job->status);
@@ -117,6 +115,8 @@ class Test_Job extends CavalcadeRunner_TestCase
 
     function test_clear_schedule_immediately()
     {
+        $this->markTestIncomplete('Invalid Job ID occurs');
+
         wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
 
         self::wait_wpcli_blocking();
@@ -126,9 +126,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::go_wpcli_blocking();
 
-        $this->markTestIncomplete('Invalid Job ID occurs');
-
-        sleep(2);
+        sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
         $this->assertEquals(STATUS_COMPLETED, file_get_contents(ACTUAL_STATUS));
@@ -141,7 +139,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::wait_wpcli_blocking();
         self::go_wpcli_blocking();
-        sleep(2);
+        sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
         $this->assertEquals(STATUS_RUNNING, file_get_contents(ACTUAL_STATUS));

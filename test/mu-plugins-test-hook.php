@@ -40,8 +40,6 @@ add_action(JOB, function ($func) {
 add_action(FAILED_JOB, function ($func) {
     global $wpdb;
 
-    WP_CLI\Utils\replace_wp_die_handler();
-
     $sql = $wpdb->prepare(
         "SELECT * FROM {$wpdb->base_prefix}cavalcade_jobs WHERE hook = %s",
         [FAILED_JOB],
