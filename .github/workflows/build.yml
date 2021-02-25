@@ -10,12 +10,60 @@ on:
     - issue/*
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version:
+        - '7.3'
+        - '7.4'
+        # - '8.0'
+        wp-multisite:
+        - '0'
+        - '1'
+        wp-version:
+        - latest
+        - trunk
+    steps:
+    - uses: actions/checkout@v2
+    - name: set PHP_VERSION
+      run: echo "PHP_VERSION=${{matrix.php-version}}" >> $GITHUB_ENV
+    - name: set WP_VERSION
+      run: echo "WP_VERSION=${{matrix.wp-version}}" >> $GITHUB_ENV
+    - name: set WP_MULTISITE
+      run: echo "WP_MULTISITE=${{matrix.wp-multisite}}" >> $GITHUB_ENV
+    - run: build/build-image
+    - run: build/run-test
+    - name: Upload Unit Test Results
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-result-php${{matrix.php-version}}-wp${{matrix.wp-version}}-ms${{matrix.wp-multisite}}
+        path: work/test-result.xml
+
+  publish-test:
+    name: Publish Unit Tests Results
+    needs: test
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        path: artifacts
+    - name: Show artifacts
+      run: ls -laR ./
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      with:
+        check_name: Unit Test Results
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        files: ./**/test-result.xml
+
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - run: build/build-image
-    - run: build/run-test
     - run: build/run-package
     - uses: actions/upload-artifact@v2
       with:
@@ -23,7 +71,9 @@ jobs:
         path: work/cavalcade-runner.zip
 
   release:
-    needs: build
+    needs:
+    - test
+    - build
     if: github.ref == 'refs/heads/forked/master'
     runs-on: ubuntu-latest
     steps:

@@ -1,9 +1,5 @@
 <?php
 
-/**
- * Cavalcade Runner
- */
-
 namespace HM\Cavalcade\Runner;
 
 use Exception;
@@ -13,7 +9,8 @@ const LOOP_INTERVAL = 1;
 
 class Runner
 {
-    public $options = [];
+    public $max_workers;
+    public $wpcli_path;
 
     /**
      * Hook system for the Runner.
@@ -25,6 +22,7 @@ class Runner
     protected $db;
     protected $workers = [];
     protected $wp_path;
+    protected $log;
 
     /**
      * Instance of the runner.
@@ -33,13 +31,12 @@ class Runner
      */
     protected static $instance;
 
-    public function __construct($options = [])
+    public function __construct($log, $max_workers, $wpcli_path)
     {
-        $defaults = [
-            'max_workers' => 4,
-        ];
-        $this->options = array_merge($defaults, $options);
+        $this->max_workers = $max_workers;
+        $this->wpcli_path = $wpcli_path;
         $this->hooks = new Hooks();
+        $this->log = $log;
     }
 
     /**
@@ -47,10 +44,10 @@ class Runner
      *
      * @return self
      */
-    public static function instance()
+    public static function instance($log, $max_workers, $wpcli_path)
     {
         if (empty(static::$instance)) {
-            static::$instance = new static();
+            static::$instance = new static($log, $max_workers, $wpcli_path);
         }
 
         return static::$instance;
@@ -96,60 +93,45 @@ class Runner
         $this->connect_to_db();
     }
 
+    // TODO: Run updating database schema every time runner is started.
+    // Keep DB schema updated.
     public function run()
     {
-        $running = [];
-
-        // Handle SIGTERM calls
         pcntl_signal(SIGTERM, [$this, 'terminate']);
         pcntl_signal(SIGINT, [$this, 'terminate']);
         pcntl_signal(SIGQUIT, [$this, 'terminate']);
 
-        /**
-         * Action before starting to run.
-         */
         $this->hooks->run('Runner.run.before');
 
         while (true) {
-            // Check for any signals we've received
             pcntl_signal_dispatch();
-
-            /**
-             * Action at the start of every loop iteration.
-             *
-             * @param Runner $this Instance of the Cavalcade Runner
-             */
             $this->hooks->run('Runner.run.loop_start', $this);
-
-            // Check the running workers
             $this->check_workers();
 
-            // Do we have workers to spare?
-            if (count($this->workers) === $this->options['max_workers']) {
-                // At maximum workers, wait a cycle
-                printf('[  ] Out of workers' . PHP_EOL);
+            if (count($this->workers) === $this->max_workers) {
+                $this->log->debug('out of workers');
                 sleep(LOOP_INTERVAL);
                 continue;
             }
 
-            // Find any new jobs, or wait for one
             $job = $this->get_next_job();
             if (empty($job)) {
-                // No job to run, try again in a second
                 sleep(LOOP_INTERVAL);
                 continue;
             }
 
-            // Spawn worker
             try {
                 $this->run_job($job);
             } catch (Exception $e) {
-                trigger_error(sprintf('Unable to run job due to exception: %s', $e->getMessage()), E_USER_WARNING);
+                $this->log->error('unable to run job', [
+                    'reason' => $e->getMessage(),
+                    'job_id' => intval($job->id),
+                    'hook' => $job->hook,
+                    'args' => $job->args,
+                ]);
                 $job->mark_failed($e->getMessage());
                 break;
             }
-
-            // Go again!
         }
 
         $this->terminate(SIGTERM);
@@ -250,10 +232,11 @@ class Runner
      */
     protected function get_next_job()
     {
-        $query = "SELECT * FROM {$this->table_prefix}cavalcade_jobs";
-        $query .= ' WHERE nextrun < NOW() AND status = "waiting"';
-        $query .= ' ORDER BY nextrun ASC';
-        $query .= ' LIMIT 1';
+        $query = "SELECT * FROM {$this->table_prefix}cavalcade_jobs
+                  WHERE nextrun < NOW()
+                  AND status = \"waiting\"
+                  ORDER BY nextrun ASC
+                  LIMIT 1";
 
         /**
          * Filter for the next job query.
@@ -276,32 +259,22 @@ class Runner
 
     protected function run_job($job)
     {
-        // Mark the job as started
         $has_lock = $job->acquire_lock();
         if (!$has_lock) {
-            // Couldn't get lock, looks like another supervisor already started
             return;
         }
 
-        $command = $this->get_job_command($job);
-
-        $cwd = $this->wp_path;
-        printf('[%d] Running %s (%s %s)' . PHP_EOL, $job->id, $command, $job->hook, $job->args);
+        $error_log_file = tempnam('/tmp', 'cavalcade');
+        $command = $this->job_command($job, $error_log_file);
+        $this->log->debug('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
 
         $spec = [
-            // We're intentionally avoiding adding a stdin pipe
-            // stdin 0 => null
-
-            // stdout
-            1 => ['pipe', 'w'],
-
-            // stderr
-            2 => ['pipe', 'w'],
+            1 => ['pipe', 'w'], // stdout
+            2 => ['pipe', 'w'], // stderr
         ];
-        $process = proc_open($command, $spec, $pipes, $cwd);
+        $process = proc_open($command, $spec, $pipes, $this->wp_path);
 
         if (!is_resource($process)) {
-            // Set the job to failed as we don't know if the process was able to run the job.
             throw new Exception('Unable to proc_open.');
         }
 
@@ -309,34 +282,21 @@ class Runner
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
 
-        $worker = new Worker($process, $pipes, $job);
+        $worker = new Worker($process, $pipes, $job, $this->log, $error_log_file);
         $this->workers[] = $worker;
 
-        printf('[%d] Started worker' . PHP_EOL, $job->id);
-
-        /**
-         * Action after starting a new worker.
-         *
-         * @param Worker $worker Worker that started.
-         * @param Job $job Job that the worker is processing.
-         */
+        $this->log->debug('worker started', ['job_id' => $job->id]);
         $this->hooks->run('Runner.run_job.started', $worker, $job);
     }
 
-    protected function get_job_command($job)
+    protected function job_command($job, $error_log_file)
     {
         $siteurl = $job->get_site_url();
 
-        $command = sprintf(
-            'wp cavalcade run %d',
-            $job->id
-        );
+        $command = "php -d error_log=$error_log_file $this->wpcli_path cavalcade run $job->id";
 
         if ($siteurl) {
-            $command .= sprintf(
-                ' --url=%s',
-                escapeshellarg($siteurl)
-            );
+            $command .= ' --url=' . escapeshellarg($siteurl);
         }
 
         /**
@@ -351,7 +311,7 @@ class Runner
     protected function check_workers()
     {
         if (empty($this->workers)) {
-            return true;
+            return;
         }
 
         $pipes_stdout = $pipes_stderr = [];
@@ -360,73 +320,41 @@ class Runner
             $pipes_stderr[$id] = $worker->pipes[2];
         }
 
-        // Grab all the pipes ready to close
-        $a = $b = null; // Dummy vars for reference passing
+        $dummy_a = $dummy_b = null;
 
-        $changed_stdout = stream_select($pipes_stdout, $a, $b, 0);
+        $changed_stdout = stream_select($pipes_stdout, $dummy_a, $dummy_b, 0);
         if ($changed_stdout === false) {
             // An error occured!
-            return false;
+            return;
         }
 
-        $changed_stderr = stream_select($pipes_stderr, $a, $b, 0);
+        $changed_stderr = stream_select($pipes_stderr, $dummy_a, $dummy_b, 0);
         if ($changed_stderr === false) {
             // An error occured!
-            return false;
+            return;
         }
 
         if ($changed_stdout === 0 && $changed_stderr === 0) {
-            // No change, try again
-            return true;
+            return;
         }
 
-        // List of Workers with a changed state
         $changed_workers = array_unique(array_merge(array_keys($pipes_stdout), array_keys($pipes_stderr)));
 
-        /**
-         * Filter for using a custom Logger implementation, instead of the
-         * default one.
-         *
-         * @param object $logger Logger implementation that will be used.
-         */
-        $logger = $this->hooks->run(
-            'Runner.check_workers.logger',
-            new Logger($this->db, $this->table_prefix)
-        );
-
-        // Clean up all of the finished workers
         foreach ($changed_workers as $id) {
             $worker = $this->workers[$id];
             $worker->drain_pipes();
             if (!$worker->is_done()) {
-                // Process hasn't exited yet, keep rocking on
                 continue;
             }
 
-            if (!$worker->shutdown()) {
-                $worker->job->mark_failed();
-                $logger->log_job_failed($worker->job, 'Failed to shutdown worker.');
-
-                /**
-                 * Action after a job has failed.
-                 *
-                 * @param Worker $worker Worker that ran the job.
-                 * @param Job $job Job that failed.
-                 * @param Logger $logger Logger for the job.
-                 */
-                $this->hooks->run('Runner.check_workers.job_failed', $worker, $worker->job, $logger);
-            } else {
+            if ($worker->shutdown()) {
                 $worker->job->mark_completed();
-                $logger->log_job_completed($worker->job);
-
-                /**
-                 * Action after a job has failed.
-                 *
-                 * @param Worker $worker Worker that ran the job.
-                 * @param Job $job Job that completed.
-                 * @param Logger $logger Logger for the job.
-                 */
-                $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job, $logger);
+                $this->log->job_completed($worker);
+                $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job);
+            } else {
+                $worker->job->mark_failed();
+                $this->log->job_failed($worker, 'failed to shutdown worker');
+                $this->hooks->run('Runner.check_workers.job_failed', $worker, $worker->job);
             }
 
             unset($this->workers[$id]);

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -eu
+
+url='https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar'
+curl -fsSL "$url" > /usr/local/bin/wp
+chmod +x /usr/local/bin/wp

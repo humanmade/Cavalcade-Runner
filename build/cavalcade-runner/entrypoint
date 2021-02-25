@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -eux
+
+step="$1"
+
+mkdir -p work
+
+command='bin/cavalcade -l work/cavalcade-runner.log -p work/cavalcade-runner.pid -b /www -w 10'
+
+case "$step" in
+  validate)
+    composer --no-cache --dev install
+    exec vendor/bin/phpcbf -v
+    ;;
+  package)
+    composer --no-cache --no-dev install
+    exec build/cavalcade-runner/package
+    ;;
+  restartable)
+    wait-for-it -q db:3306
+    build/common/wait-for-file /www/wp-config.php
+    exec build/cavalcade-runner/restarter "$command"
+    ;;
+  *)
+    exit 1
+    ;;
+esac

@@ -1,41 +1,43 @@
 #!/usr/bin/env php
 <?php
 
-/**
- * Cavalcade
- */
-
 namespace HM\Cavalcade\Runner;
 
 use Exception;
 
 include dirname(__DIR__) . '/bootstrap.php';
 
-// Add help text when -h or --help is used
-$options = getopt('h', ['help']);
-if (isset($options['h']) || isset($options['help'])) {
-    $script_name = basename($argv[0]);
-    $header = <<<EOF
-This is daemon for Cavalcade, a scalable WordPress jobs system.
-More information: https://github.com/humanmade/Cavalcade
-Usage: $script_name /path/to/wordpress
-EOF;
+$options = getopt('l:p:b:w:c:');
+$log_path = $options['l'] ?? '/var/log/wp/cron.log';
+$pid_file = $options['p'] ?? '/run/cavalcade/cavalcade.pid';
+$wp_base_path = $options['b'] ?? '/var/web/wp';
+$max_workers_count = $options['w'] ?? 2;
+$wpcli_path = $options['c'] ?? '/usr/local/bin/wp';
 
-    fwrite(STDERR, $header);
-    exit(0);
+date_default_timezone_set('UTC');
+$log = Logger::create($log_path);
+$pid = getmypid();
+if ($pid === null) {
+    $log->fatal('cannot get PID');
+    exit(1);
 }
 
-$wp_path = isset($argv[1]) ? $argv[1] : '.';
+file_put_contents($pid_file, $pid);
 
-$runner = Runner::instance();
 try {
-    $runner->bootstrap($wp_path);
+    $runner = Runner::instance($log, $max_workers_count, $wpcli_path);
+    $runner->bootstrap($wp_base_path);
+    $log->info('Cavalcade Runner started');
     $runner->run();
 } catch (SignalInterrupt $e) {
-    printf(PHP_EOL . 'Shutting down! (%s: %d)' . PHP_EOL, $e->getMessage(), $e->getCode());
-    exit(0);
+    $log->info('shutting down', [
+        'reason' => $e->getMessage(),
+        'signal' => $e->getCode(),
+    ]);
 } catch (Exception $e) {
-    fwrite(STDERR, sprintf('Error: %s' . PHP_EOL, $e->getMessage()));
-    fwrite(STDERR, $e->getTraceAsString() . PHP_EOL);
+    $log->fatal($e->getMessage(), ['trace' => $e->getTraceAsString()]);
+    unlink($pid_file);
     exit(1);
+} finally {
+    unlink($pid_file);
 }

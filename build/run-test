@@ -2,4 +2,7 @@
 
 set -eu
 
-exec docker-compose -f build/docker-compose.yml run php test
+trap 'docker-compose -f build/docker-compose.yml down' EXIT
+
+source build/envs.sh
+docker-compose -f build/docker-compose.yml run --rm wordpress

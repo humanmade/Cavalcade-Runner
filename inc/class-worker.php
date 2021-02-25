@@ -1,9 +1,5 @@
 <?php
 
-/**
- * Cavalcade Runner
- */
-
 namespace HM\Cavalcade\Runner;
 
 class Worker
@@ -16,25 +12,35 @@ class Worker
     public $error_output = '';
     public $status = null;
 
-    public function __construct($process, $pipes, Job $job)
+    protected $log;
+    protected $error_log_output;
+    protected $error_log_file;
+
+    public function __construct($process, $pipes, Job $job, $log, $error_log_file)
     {
         $this->process = $process;
         $this->pipes = $pipes;
         $this->job = $job;
+        $this->log = $log;
+        $this->error_log_file = $error_log_file;
     }
 
     public function is_done()
     {
         if (isset($this->status['running']) && !$this->status['running']) {
-            // Already exited, so don't try and fetch again
-            // (Exit code is only valid the first time after it exits)
-            return !($this->status['running']);
+            return true;
         }
 
         $this->status = proc_get_status($this->process);
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r
-        printf('[%d] Worker status: %s' . PHP_EOL, $this->job->id, print_r($this->status, true));
-        return !($this->status['running']);
+        $this->log->debug('worker status', ['job_id' => $this->job->id, 'status' => $this->status]);
+        return !$this->status['running'];
+    }
+
+    protected static function strip_shebang($str)
+    {
+        $shebang = "#!/usr/bin/env php\n";
+        $len = strlen($shebang);
+        return substr($str, 0, $len) === $shebang ? substr($str, $len) : $str;
     }
 
     /**
@@ -44,11 +50,11 @@ class Worker
      */
     public function drain_pipes()
     {
-        while ($data = fread($this->pipes[1], 1024)) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+        while ($data = fread($this->pipes[1], 1024)) {
             $this->output .= $data;
         }
 
-        while ($data = fread($this->pipes[2], 1024)) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+        while ($data = fread($this->pipes[2], 1024)) {
             $this->error_output .= $data;
         }
     }
@@ -60,21 +66,37 @@ class Worker
      */
     public function shutdown()
     {
-        printf('[%d] Worker shutting down...' . PHP_EOL, $this->job->id);
+        $this->log->debug('worker shutting down', ['job_id' => $this->job->id]);
 
-        // Exhaust the streams
         $this->drain_pipes();
-        fclose($this->pipes[1]); // phpcs:ignore WordPress.WP.AlternativeFunctions
-        fclose($this->pipes[2]); // phpcs:ignore WordPress.WP.AlternativeFunctions
-
-        printf('[%d] Worker out: %s' . PHP_EOL, $this->job->id, $this->output);
-        printf('[%d] Worker err: %s' . PHP_EOL, $this->job->id, $this->error_output);
-        printf('[%d] Worker ret: %d' . PHP_EOL, $this->job->id, $this->status['exitcode']);
-
-        // Close the process down too
+        $this->output = self::strip_shebang($this->output);
+        $this->error_log_output = file_get_contents($this->error_log_file);
+        fclose($this->pipes[1]);
+        fclose($this->pipes[2]);
+        unlink($this->error_log_file);
         proc_close($this->process);
         unset($this->process);
 
-        return ($this->status['exitcode'] === 0);
+        return $this->status['exitcode'] === 0;
+    }
+
+    public function get_stdout()
+    {
+        return $this->output;
+    }
+
+    public function get_stderr()
+    {
+        return $this->error_output;
+    }
+
+    public function get_error_log()
+    {
+        return $this->error_log_output;
+    }
+
+    public function get_status()
+    {
+        return $this->status;
     }
 }

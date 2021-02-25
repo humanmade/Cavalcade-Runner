@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -eux
+
+command='mysql -h db -u root -proot wordpress'
+sql="$1"
+i=0
+while [ $i -lt 30 ] && ! $command <<< "$sql" > /dev/null 2>&1; do
+  i=$(( $i + 1 ))
+  sleep 1
+done
+if [ $i -eq 30 ]; then
+  exit 1
+fi
