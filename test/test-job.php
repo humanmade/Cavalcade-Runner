@@ -4,21 +4,9 @@ namespace HM\Cavalcade\Runner\Tests;
 
 const JOB = 'test_job';
 const FAILED_JOB = 'failed_test_job';
-const WPTEST_WPCLI_FIFO = '/workspace/work/wptest-wpcli.fifo';
-const WPCLI_WPTEST_FIFO = '/workspace/work/wpcli-wptest.fifo';
 
 class Test_Job extends CavalcadeRunner_TestCase
 {
-    function setUp()
-    {
-        parent::setUp();
-
-        @unlink(WPTEST_WPCLI_FIFO);
-        @unlink(WPCLI_WPTEST_FIFO);
-        posix_mkfifo(WPTEST_WPCLI_FIFO, 0644);
-        posix_mkfifo(WPCLI_WPTEST_FIFO, 0644);
-    }
-
     private static function go_wpcli_blocking()
     {
         file_put_contents(WPTEST_WPCLI_FIFO, "\n");
@@ -38,117 +26,195 @@ class Test_Job extends CavalcadeRunner_TestCase
             [$job],
         );
 
-        $res = $wpdb->get_results($sql)[0];
+        $res = $wpdb->get_results($sql);
 
         // echo var_export($res, true);
 
-        return $res;
+        return 0 < count($res) ? $res[0] : null;
     }
 
-    private static function nextrun($job)
+    private static function as_epoch($mysql_time)
     {
-        return mysql2date('G', $job->nextrun);
+        return mysql2date('G', $mysql_time);
     }
 
     function test_single_event()
     {
-        wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
-        $this->assertEquals(STATUS_WAITING, self::get_job(JOB)->status);
+        $pre_time = time();
+        wp_schedule_single_event($pre_time, JOB, [__FUNCTION__]);
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_WAITING, $job->status);
+        $this->assertNull($job->started_at);
+        $this->assertNull($job->finished_at);
 
         self::wait_wpcli_blocking();
+
+        $in_time = time();
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_RUNNING, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertNull($job->finished_at);
+
         self::go_wpcli_blocking();
         sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
-        $this->assertEquals(STATUS_RUNNING, file_get_contents(ACTUAL_STATUS));
+
+        $post_time = time();
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_COMPLETED, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
+        $this->assertNull($job->deleted_at);
+
+        $this->assertBetweenWeak(
+            strtotime('-1 minutes'),
+            time(),
+            self::as_epoch($job->nextrun),
+        );
+
+        sleep(3);
 
         $job = self::get_job(JOB);
         $this->assertEquals(STATUS_COMPLETED, $job->status);
 
-        $nextrun = self::nextrun($job);
-        $this->assertTrue(strtotime('-1 minutes') < $nextrun);
-        $this->assertTrue($nextrun <= time());
+        sleep(6);
+
+        $this->assertNull(self::get_job(JOB));
     }
 
     function test_schedule_event()
     {
-        wp_schedule_event(time(), RECUR_HOURLY, JOB, [__FUNCTION__]);
+        $pre_time = time();
+        wp_schedule_event($pre_time, RECUR_HOURLY, JOB, [__FUNCTION__]);
         $this->assertEquals(STATUS_WAITING, self::get_job(JOB)->status);
 
         self::wait_wpcli_blocking();
+
+        $in_time = time();
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_RUNNING, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertNull($job->finished_at);
+
         self::go_wpcli_blocking();
         sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
-        $this->assertEquals(STATUS_RUNNING, file_get_contents(ACTUAL_STATUS));
+
+        $post_time = time();
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_WAITING, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
+        $this->assertNull($job->deleted_at);
+
+        $this->assertBetweenWeak(
+            strtotime('+59 minutes'),
+            strtotime('+61 minutes'),
+            self::as_epoch($job->nextrun),
+        );
+
+        sleep(9);
 
         $job = self::get_job(JOB);
         $this->assertEquals(STATUS_WAITING, $job->status);
-
-        $nextrun = self::nextrun($job);
-        $this->assertTrue(strtotime('+59 minutes') < $nextrun);
-        $this->assertTrue($nextrun < strtotime('+61 minutes'));
     }
 
     function test_unschedule_immediately()
     {
-        $ts = time();
-        wp_schedule_single_event($ts, JOB, [__FUNCTION__]);
+        $pre_time = time();
+        wp_schedule_single_event($pre_time, JOB, [__FUNCTION__]);
 
         self::wait_wpcli_blocking();
 
-        self::get_job(JOB);
-        $unscheduled = wp_unschedule_event($ts, JOB, [__FUNCTION__]);
+        $in_time = time();
+        $unscheduled = wp_unschedule_event($pre_time, JOB, [__FUNCTION__]);
         $this->assertTrue($unscheduled);
 
         self::go_wpcli_blocking();
+        sleep(3);
+
+        $post_time = time();
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_COMPLETED, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->deleted_at));
+        $this->assertBetweenWeak(strtotime('-1 minutes'), time(), self::as_epoch($job->nextrun));
 
         sleep(3);
 
         $job = self::get_job(JOB);
         $this->assertEquals(STATUS_COMPLETED, $job->status);
 
-        $nextrun = self::nextrun($job);
-        $this->assertTrue(strtotime('-1 minutes') < $nextrun);
-        $this->assertTrue($nextrun <= time());
+        sleep(6);
+
+        $this->assertNull(self::get_job(JOB));
     }
 
     function test_clear_schedule_immediately()
     {
-        $this->markTestIncomplete('Invalid Job ID occurs');
-
-        wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
+        $pre_time = time();
+        wp_schedule_event($pre_time, RECUR_HOURLY, JOB, [__FUNCTION__]);
 
         self::wait_wpcli_blocking();
 
+        $in_time = time();
         $hook_unscheduled = wp_clear_scheduled_hook(JOB, [__FUNCTION__]);
         $this->assertSame(1, $hook_unscheduled);
 
         self::go_wpcli_blocking();
-
         sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
-        $this->assertEquals(STATUS_COMPLETED, file_get_contents(ACTUAL_STATUS));
+
+        $post_time = time();
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_WAITING, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->deleted_at));
+
+        sleep(3);
+
+        $job = self::get_job(JOB);
+        $this->assertEquals(STATUS_WAITING, $job->status);
+
+        sleep(6);
+
+        $this->assertNull(self::get_job(JOB));
     }
 
     function test_failed_event()
     {
-        wp_schedule_single_event(time(), FAILED_JOB, [__FUNCTION__]);
-        $this->assertEquals(STATUS_WAITING, self::get_job(FAILED_JOB)->status);
+        $pre_time = time();
+        wp_schedule_single_event($pre_time, FAILED_JOB, [__FUNCTION__]);
 
         self::wait_wpcli_blocking();
+
+        $in_time = time();
+
         self::go_wpcli_blocking();
         sleep(3);
 
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
-        $this->assertEquals(STATUS_RUNNING, file_get_contents(ACTUAL_STATUS));
+
+        $post_time = time();
+        $job = self::get_job(FAILED_JOB);
+        $this->assertEquals(STATUS_FAILED, $job->status);
+        $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
+        $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
+        $this->assertNull($job->deleted_at);
+        $this->assertBetweenWeak(strtotime('-1 minutes'), time(), self::as_epoch($job->nextrun));
+
+        sleep(3);
 
         $job = self::get_job(FAILED_JOB);
         $this->assertEquals(STATUS_FAILED, $job->status);
 
-        $nextrun = self::nextrun($job);
-        $this->assertTrue(strtotime('-1 minutes') < $nextrun);
-        $this->assertTrue($nextrun <= time());
+        sleep(6);
+
+        $this->assertNull(self::get_job(FAILED_JOB));
     }
 }
