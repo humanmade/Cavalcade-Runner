@@ -2,15 +2,21 @@
 
 namespace HM\Cavalcade\Runner;
 
+use DateInterval;
+use DateTime;
+use DateTimeZone;
 use Exception;
 use PDO;
 
 const LOOP_INTERVAL = 1;
+const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
 
 class Runner
 {
     public $max_workers;
     public $wpcli_path;
+    public $cleanup_interval;
+    public $cleanup_delay;
 
     /**
      * Hook system for the Runner.
@@ -31,10 +37,19 @@ class Runner
      */
     protected static $instance;
 
-    public function __construct($log, $max_workers, $wpcli_path)
-    {
+    public function __construct(
+        $log,
+        $max_workers,
+        $wpcli_path,
+        $cleanup_interval,
+        $cleanup_delay,
+        $wp_base_path
+    ) {
         $this->max_workers = $max_workers;
         $this->wpcli_path = $wpcli_path;
+        $this->cleanup_interval = $cleanup_interval;
+        $this->cleanup_delay = $cleanup_delay;
+        $this->wp_path = realpath($wp_base_path);
         $this->hooks = new Hooks();
         $this->log = $log;
     }
@@ -44,34 +59,45 @@ class Runner
      *
      * @return self
      */
-    public static function instance($log, $max_workers, $wpcli_path)
-    {
+    public static function instance(
+        $log,
+        $max_workers,
+        $wpcli_path,
+        $cleanup_interval,
+        $cleanup_delay,
+        $wp_base_path
+    ) {
         if (empty(static::$instance)) {
-            static::$instance = new static($log, $max_workers, $wpcli_path);
+            static::$instance = new static(
+                $log,
+                $max_workers,
+                $wpcli_path,
+                $cleanup_interval,
+                $cleanup_delay,
+                $wp_base_path,
+            );
         }
 
         return static::$instance;
     }
 
-    public function bootstrap($wp_path = '.')
+    public function bootstrap()
     {
         // Check some requirements first
         if (!function_exists('pcntl_signal')) {
             throw new Exception('pcntl extension is required');
         }
 
-        $config_path = realpath($wp_path . '/wp-config.php');
+        $config_path = $this->wp_path . '/wp-config.php';
         if (!file_exists($config_path)) {
-            $config_path = realpath($wp_path . '/../wp-config.php');
+            $config_path = realpath($this->wp_path . '/../wp-config.php');
             if (!file_exists($config_path)) {
                 throw new Exception(sprintf(
                     'Could not find config file at %s',
-                    realpath($wp_path) . '/wp-config.php or next level up.'
+                    $this->wp_path . '/wp-config.php or next level up.'
                 ));
             }
         }
-
-        $this->wp_path = realpath($wp_path);
 
         // Load WP config
         define('ABSPATH', dirname(__DIR__) . '/fakewp/');
@@ -91,10 +117,40 @@ class Runner
 
         // Connect to the database!
         $this->connect_to_db();
+
+        $this->upgrade_db();
     }
 
-    // TODO: Run updating database schema every time runner is started.
-    // Keep DB schema updated.
+    protected function upgrade_db()
+    {
+        $output = $retval = null;
+        exec("$this->wpcli_path --path=$this->wp_path cavalcade upgrade", $output, $retval);
+        $this->log->info('wp cavalcade upgrade executed', [
+            'output' => $output,
+            'retval' => $retval,
+        ]);
+    }
+
+    public function cleanup()
+    {
+        $expired = new DateTime('now', new DateTimeZone('UTC'));
+        $expired->sub(new DateInterval("PT{$this->cleanup_delay}S"));
+
+        $query = "DELETE FROM {$this->table_prefix}cavalcade_jobs
+                  WHERE
+                      (deleted_at < :expired1 AND status IN ('completed', 'waiting', 'failed'))
+                    OR
+                      (finished_at < :expired2 AND status IN ('completed', 'failed'))";
+        $statement = $this->db->prepare($query);
+        $expired_str = $expired->format(MYSQL_DATE_FORMAT);
+        $statement->bindValue(':expired1', $expired_str);
+        $statement->bindValue(':expired2', $expired_str);
+        $statement->execute();
+        $count = $statement->rowCount();
+
+        $this->log->debug('db cleaned up', ['deleted_rows' => $count]);
+    }
+
     public function run()
     {
         pcntl_signal(SIGTERM, [$this, 'terminate']);
@@ -103,9 +159,17 @@ class Runner
 
         $this->hooks->run('Runner.run.before');
 
+        $prev_cleanup = time();
         while (true) {
             pcntl_signal_dispatch();
             $this->hooks->run('Runner.run.loop_start', $this);
+
+            $now = time();
+            if ($this->cleanup_interval <= $now - $prev_cleanup) {
+                $prev_cleanup = $now;
+                $this->cleanup();
+            }
+
             $this->check_workers();
 
             if (count($this->workers) === $this->max_workers) {

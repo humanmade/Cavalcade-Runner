@@ -1,7 +1,6 @@
 <?php
 
 const ACTUAL_FUNCTION = '/workspace/work/test_function_name.txt';
-const ACTUAL_STATUS = '/workspace/work/test_status.txt';
 const JOB = 'test_job';
 const FAILED_JOB = 'failed_test_job';
 const WPTEST_WPCLI_FIFO = '/workspace/work/wptest-wpcli.fifo';
@@ -18,36 +17,25 @@ function wait_wptest_blocking()
 }
 
 if (defined('WP_CLI')) {
-    WP_CLI::add_hook('before_invoke:cavalcade', function () {
+    WP_CLI::add_hook('before_invoke:cavalcade run', function () {
         go_wptest_blocking();
         wait_wptest_blocking();
     });
 }
 
 add_action(JOB, function ($func) {
-    global $wpdb;
-
-    $sql = $wpdb->prepare(
-        "SELECT * FROM {$wpdb->base_prefix}cavalcade_jobs WHERE hook = %s",
-        [JOB],
-    );
-    $result = $wpdb->get_results($sql)[0];
-
     file_put_contents(ACTUAL_FUNCTION, $func);
-    file_put_contents(ACTUAL_STATUS, $result->status);
 });
 
 add_action(FAILED_JOB, function ($func) {
-    global $wpdb;
-
-    $sql = $wpdb->prepare(
-        "SELECT * FROM {$wpdb->base_prefix}cavalcade_jobs WHERE hook = %s",
-        [FAILED_JOB],
-    );
-    $result = $wpdb->get_results($sql)[0];
-
     file_put_contents(ACTUAL_FUNCTION, $func);
-    file_put_contents(ACTUAL_STATUS, $result->status);
-
     wp_die();
 });
+
+// Never register unrelated hooks to cron
+add_filter('pre_schedule_event', function ($pre, $event, $wp_error = false) {
+    if ($event->hook !== JOB && $event->hook !== FAILED_JOB) {
+        return true;
+    }
+    return null;
+}, 9, 3);

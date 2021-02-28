@@ -7,12 +7,14 @@ use Exception;
 
 include dirname(__DIR__) . '/bootstrap.php';
 
-$options = getopt('l:p:b:w:c:');
+$options = getopt('l:p:b:w:c:i:d:');
 $log_path = $options['l'] ?? '/var/log/wp/cron.log';
 $pid_file = $options['p'] ?? '/run/cavalcade/cavalcade.pid';
 $wp_base_path = $options['b'] ?? '/var/web/wp';
-$max_workers_count = $options['w'] ?? 2;
+$max_workers_count = intval($options['w'] ?? 2);
 $wpcli_path = $options['c'] ?? '/usr/local/bin/wp';
+$cleanup_interval = intval($options['i'] ?? 60);
+$cleanup_delay = intval($options['d'] ?? 24 * 60 * 60);
 
 date_default_timezone_set('UTC');
 $log = Logger::create($log_path);
@@ -25,8 +27,16 @@ if ($pid === null) {
 file_put_contents($pid_file, $pid);
 
 try {
-    $runner = Runner::instance($log, $max_workers_count, $wpcli_path);
-    $runner->bootstrap($wp_base_path);
+    $runner = Runner::instance(
+        $log,
+        $max_workers_count,
+        $wpcli_path,
+        $cleanup_interval,
+        $cleanup_delay,
+        $wp_base_path,
+    );
+    $runner->bootstrap();
+    /*CAVALCADE_HOOKS_FOR_TESTING*/
     $log->info('Cavalcade Runner started');
     $runner->run();
 } catch (SignalInterrupt $e) {

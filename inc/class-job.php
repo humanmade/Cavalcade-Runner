@@ -7,18 +7,21 @@ use DateTime;
 use DateTimeZone;
 use PDO;
 
-const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
-
 class Job
 {
     public $id;
     public $site;
     public $hook;
     public $args;
-    public $start;
     public $nextrun;
     public $interval;
     public $status;
+    public $schedule;
+    public $registered_at;
+    public $revised_at;
+    public $started_at;
+    public $finished_at;
+    public $deleted_at;
 
     protected $db;
     protected $table_prefix;
@@ -60,12 +63,16 @@ class Job
      */
     public function acquire_lock()
     {
+        $started_at = new DateTime('now', new DateTimeZone('UTC'));
+        $this->started_at = $started_at->format(MYSQL_DATE_FORMAT);
+
         $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                  SET status = \"running\"
+                  SET status = \"running\", started_at = :started_at
                   WHERE status = \"waiting\" AND id = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);
+        $statement->bindValue(':started_at', $this->started_at);
         $statement->execute();
 
         $rows = $statement->rowCount();
@@ -74,16 +81,19 @@ class Job
 
     public function mark_completed()
     {
-        $data = [];
+        $finished_at = new DateTime('now', new DateTimeZone('UTC'));
+        $this->finished_at = $finished_at->format(MYSQL_DATE_FORMAT);
+
         if ($this->interval) {
             $this->reschedule();
         } else {
             $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                      SET status = \"completed\"
+                      SET status = \"completed\", finished_at = :finished_at
                       WHERE id = :id";
 
             $statement = $this->db->prepare($query);
             $statement->bindValue(':id', $this->id);
+            $statement->bindValue(':finished_at', $this->finished_at);
             $statement->execute();
         }
     }
@@ -97,13 +107,14 @@ class Job
         $this->status = 'waiting';
 
         $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                  SET status = :status, nextrun = :nextrun
+                  SET status = :status, nextrun = :nextrun, finished_at = :finished_at
                   WHERE id = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);
         $statement->bindValue(':status', $this->status);
         $statement->bindValue(':nextrun', $this->nextrun);
+        $statement->bindValue(':finished_at', $this->finished_at);
         $statement->execute();
     }
 
@@ -112,14 +123,22 @@ class Job
      *
      * @param  string $message failure detail message
      */
-    public function mark_failed($message = '')
+    public function mark_failed()
     {
-        $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                  SET status = \"failed\"
-                  WHERE id = :id";
+        $finished_at = new DateTime('now', new DateTimeZone('UTC'));
+        $this->finished_at = $finished_at->format(MYSQL_DATE_FORMAT);
 
-        $statement = $this->db->prepare($query);
-        $statement->bindValue(':id', $this->id);
-        $statement->execute();
+        if ($this->interval) {
+            $this->reschedule();
+        } else {
+            $query = "UPDATE {$this->table_prefix}cavalcade_jobs
+                    SET status = \"failed\", finished_at = :finished_at
+                    WHERE id = :id";
+
+            $statement = $this->db->prepare($query);
+            $statement->bindValue(':id', $this->id);
+            $statement->bindValue(':finished_at', $this->finished_at);
+            $statement->execute();
+        }
     }
 }

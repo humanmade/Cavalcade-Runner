@@ -22,7 +22,7 @@ tmp_caval="$(mktemp)"
 tmpd_caval="$(mktemp -d)"
 trap "rm -fr $tmp_caval $tmpd_caval" EXIT
 curl -fsSL \
-  "https://github.com/tarosky/Cavalcade/releases/download/build-5/cavalcade.build-$cavalcade_version.zip" \
+  "https://github.com/tarosky/Cavalcade/releases/download/build-$cavalcade_version/cavalcade.build-$cavalcade_version.zip" \
   > "$tmp_caval"
 unzip -q -d "$tmpd_caval" "$tmp_caval"
 mkdir -p /wp/wp-content/mu-plugins
