@@ -9,7 +9,7 @@ include dirname(__DIR__) . '/bootstrap.php';
 
 $options = getopt('l:p:b:w:c:i:d:');
 $log_path = $options['l'] ?? '/var/log/wp/cron.log';
-$pid_file = $options['p'] ?? '/run/cavalcade/cavalcade.pid';
+$pid_file = $options['p'] ?? '/run/cavalcade-runner/cavalcade-runner.pid';
 $wp_base_path = $options['b'] ?? '/var/web/wp';
 $max_workers_count = intval($options['w'] ?? 2);
 $wpcli_path = $options['c'] ?? '/usr/local/bin/wp';
@@ -36,7 +36,9 @@ try {
         $wp_base_path,
     );
     $runner->bootstrap();
-    /*CAVALCADE_HOOKS_FOR_TESTING*/
+    $runner->hooks->register('Runner.run.before', function () {
+    file_put_contents('/workspace/work/runner-wptest.fifo', "\n");
+});
     $log->info('Cavalcade Runner started');
     $runner->run();
 } catch (SignalInterrupt $e) {

@@ -19,6 +19,6 @@
     "phpunit/phpunit": "7.5.20"
   },
   "bin": [
-    "bin/cavalcade"
+    "bin/cavalcade-runner"
   ]
 }

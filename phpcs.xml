@@ -2,7 +2,7 @@
 <ruleset>
 
 	<file>bin/</file>
-	<file>bin/cavalcade</file>
+	<file>bin/cavalcade-runner</file>
 	<file>bootstrap.php</file>
 	<file>fakewp/</file>
 	<file>inc/</file>
