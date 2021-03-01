@@ -7,7 +7,11 @@ target=work/cavalcade-runner
 rm -fr "$target" "$target.zip"
 mkdir -p "$target"
 cp -R bin fakewp inc vendor bootstrap.php "$target"
-rm -fr "$target/bin/cavalcade.php" "$target/bin/README.md"
+rm -fr \
+  "$target/bin/.gitignore" \
+  "$target/bin/cavalcade-runner.php" \
+  "$target/bin/cavalcade-runner-test" \
+  "$target/bin/README.md"
 {
   cd work
   zip -r cavalcade-runner.zip cavalcade-runner

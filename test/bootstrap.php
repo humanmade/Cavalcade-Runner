@@ -9,9 +9,9 @@ require '/wp-tests/includes/functions.php';
 require '/wp-tests/includes/bootstrap.php';
 require __DIR__ . '/base.php';
 
-const CAVALCADE_TEST_BIN = '/workspace/bin/cavalcade-test';
+const CAVALCADE_TEST_BIN = '/workspace/bin/cavalcade-runner-test';
 
-$original_cavalcade = file_get_contents('/workspace/bin/cavalcade');
+$original_cavalcade = file_get_contents('/workspace/bin/cavalcade-runner');
 
 $cavalcade_hook = <<<'EOS'
 $runner->hooks->register('Runner.run.before', function () {
