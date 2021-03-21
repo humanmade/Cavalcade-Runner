@@ -17,13 +17,10 @@ class Runner
     public $wpcli_path;
     public $cleanup_interval;
     public $cleanup_delay;
-
-    /**
-     * Hook system for the Runner.
-     *
-     * @var Hooks
-     */
+    public $ip_check_interval;
+    public $get_current_ip;
     public $hooks;
+    public $eip;
 
     protected $db;
     protected $workers = [];
@@ -43,13 +40,19 @@ class Runner
         $wpcli_path,
         $cleanup_interval,
         $cleanup_delay,
-        $wp_base_path
+        $wp_base_path,
+        $get_current_ip,
+        $ip_check_interval,
+        $eip
     ) {
         $this->max_workers = $max_workers;
         $this->wpcli_path = $wpcli_path;
         $this->cleanup_interval = $cleanup_interval;
         $this->cleanup_delay = $cleanup_delay;
         $this->wp_path = realpath($wp_base_path);
+        $this->get_current_ip = $get_current_ip;
+        $this->ip_check_interval = $ip_check_interval;
+        $this->eip = $eip;
         $this->hooks = new Hooks();
         $this->log = $log;
     }
@@ -65,7 +68,10 @@ class Runner
         $wpcli_path,
         $cleanup_interval,
         $cleanup_delay,
-        $wp_base_path
+        $wp_base_path,
+        $get_current_ip,
+        $ip_check_interval,
+        $eip
     ) {
         if (empty(static::$instance)) {
             static::$instance = new static(
@@ -75,6 +81,9 @@ class Runner
                 $cleanup_interval,
                 $cleanup_delay,
                 $wp_base_path,
+                $get_current_ip,
+                $ip_check_interval,
+                $eip,
             );
         }
 
@@ -138,9 +147,9 @@ class Runner
 
         $query = "DELETE FROM {$this->table_prefix}cavalcade_jobs
                   WHERE
-                      (deleted_at < :expired1 AND status IN ('completed', 'waiting', 'failed'))
+                      (deleted_at < :expired1 AND status IN ('done', 'waiting'))
                     OR
-                      (finished_at < :expired2 AND status IN ('completed', 'failed'))";
+                      (finished_at < :expired2 AND status = 'done')";
         $statement = $this->db->prepare($query);
         $expired_str = $expired->format(MYSQL_DATE_FORMAT);
         $statement->bindValue(':expired1', $expired_str);
@@ -159,12 +168,24 @@ class Runner
 
         $this->hooks->run('Runner.run.before');
 
-        $prev_cleanup = time();
+        $prev_ip_check = $prev_cleanup = time();
         while (true) {
             pcntl_signal_dispatch();
             $this->hooks->run('Runner.run.loop_start', $this);
 
             $now = time();
+
+            if ($this->ip_check_interval <= $now - $prev_ip_check) {
+                $prev_ip_check = $now;
+                if ($this->eip !== ($this->get_current_ip)()) {
+                    $this->log->info(
+                        'EIP stolen: exiting like receiving SIGTERM',
+                        ['eip' => $this->eip]
+                    );
+                    break;
+                }
+            }
+
             if ($this->cleanup_interval <= $now - $prev_cleanup) {
                 $prev_cleanup = $now;
                 $this->cleanup();
@@ -412,11 +433,11 @@ class Runner
             }
 
             if ($worker->shutdown()) {
-                $worker->job->mark_completed();
+                $worker->job->mark_done();
                 $this->log->job_completed($worker);
                 $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job);
             } else {
-                $worker->job->mark_failed();
+                $worker->job->mark_done();
                 $this->log->job_failed($worker, 'failed to shutdown worker');
                 $this->hooks->run('Runner.check_workers.job_failed', $worker, $worker->job);
             }

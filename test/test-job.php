@@ -62,7 +62,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         $post_time = time();
         $job = self::get_job(JOB);
-        $this->assertEquals(STATUS_COMPLETED, $job->status);
+        $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
         $this->assertNull($job->deleted_at);
@@ -76,7 +76,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         sleep(3);
 
         $job = self::get_job(JOB);
-        $this->assertEquals(STATUS_COMPLETED, $job->status);
+        $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 
@@ -137,7 +137,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         $post_time = time();
         $job = self::get_job(JOB);
-        $this->assertEquals(STATUS_COMPLETED, $job->status);
+        $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->deleted_at));
@@ -146,7 +146,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         sleep(3);
 
         $job = self::get_job(JOB);
-        $this->assertEquals(STATUS_COMPLETED, $job->status);
+        $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 
@@ -202,7 +202,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         $post_time = time();
         $job = self::get_job(FAILED_JOB);
-        $this->assertEquals(STATUS_FAILED, $job->status);
+        $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
         $this->assertNull($job->deleted_at);
@@ -211,7 +211,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         sleep(3);
 
         $job = self::get_job(FAILED_JOB);
-        $this->assertEquals(STATUS_FAILED, $job->status);
+        $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 

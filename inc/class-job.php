@@ -79,7 +79,7 @@ class Job
         return ($rows === 1);
     }
 
-    public function mark_completed()
+    public function mark_done()
     {
         $finished_at = new DateTime('now', new DateTimeZone('UTC'));
         $this->finished_at = $finished_at->format(MYSQL_DATE_FORMAT);
@@ -88,7 +88,7 @@ class Job
             $this->reschedule();
         } else {
             $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                      SET status = \"completed\", finished_at = :finished_at
+                      SET status = \"done\", finished_at = :finished_at
                       WHERE id = :id";
 
             $statement = $this->db->prepare($query);
@@ -116,29 +116,5 @@ class Job
         $statement->bindValue(':nextrun', $this->nextrun);
         $statement->bindValue(':finished_at', $this->finished_at);
         $statement->execute();
-    }
-
-    /**
-     * Mark the job as failed.
-     *
-     * @param  string $message failure detail message
-     */
-    public function mark_failed()
-    {
-        $finished_at = new DateTime('now', new DateTimeZone('UTC'));
-        $this->finished_at = $finished_at->format(MYSQL_DATE_FORMAT);
-
-        if ($this->interval) {
-            $this->reschedule();
-        } else {
-            $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                    SET status = \"failed\", finished_at = :finished_at
-                    WHERE id = :id";
-
-            $statement = $this->db->prepare($query);
-            $statement->bindValue(':id', $this->id);
-            $statement->bindValue(':finished_at', $this->finished_at);
-            $statement->execute();
-        }
     }
 }

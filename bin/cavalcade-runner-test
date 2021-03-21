@@ -7,14 +7,17 @@ use Exception;
 
 include dirname(__DIR__) . '/bootstrap.php';
 
-$options = getopt('l:p:b:w:c:i:d:');
+$options = getopt('l:p:b:w:c:i:d:e:k:h:');
 $log_path = $options['l'] ?? '/var/log/wp/cron.log';
 $pid_file = $options['p'] ?? '/run/cavalcade-runner/cavalcade-runner.pid';
 $wp_base_path = $options['b'] ?? '/var/web/wp';
 $max_workers_count = intval($options['w'] ?? 2);
 $wpcli_path = $options['c'] ?? '/usr/local/bin/wp';
 $cleanup_interval = intval($options['i'] ?? 60);
+$ip_check_interval = intval($options['h'] ?? 5);
 $cleanup_delay = intval($options['d'] ?? 24 * 60 * 60);
+$eip = $options['e'];
+$lockfile_path = $options['k'] ?? '/var/etc/custom/cavalcade/runner.lock';
 
 date_default_timezone_set('UTC');
 $log = Logger::create($log_path);
@@ -24,9 +27,21 @@ if ($pid === null) {
     exit(1);
 }
 
+const PUBLIC_IP_URL = 'http://169.254.169.254/latest/meta-data/public-ipv4';
+
+$get_current_ip = function () {
+    $ctx = stream_context_create(['http' => ['timeout' => 0.5]]);
+    return file_get_contents(PUBLIC_IP_URL, false, $ctx);
+};
+
+$get_current_ip = function () {
+    return file_get_contents('/workspace/work/public-ip');
+};
+
 file_put_contents($pid_file, $pid);
 
 try {
+    $lockfile = ensure_singleton($log, $lockfile_path, $eip);
     $runner = Runner::instance(
         $log,
         $max_workers_count,
@@ -34,9 +49,13 @@ try {
         $cleanup_interval,
         $cleanup_delay,
         $wp_base_path,
+        $get_current_ip,
+        $ip_check_interval,
+        $eip,
     );
     $runner->bootstrap();
     $runner->hooks->register('Runner.run.before', function () {
+    file_put_contents('/workspace/work/runner-started', "\n");
     file_put_contents('/workspace/work/runner-wptest.fifo', "\n");
 });
     $log->info('Cavalcade Runner started');
@@ -52,4 +71,64 @@ try {
     exit(1);
 } finally {
     unlink($pid_file);
+    @fclose($lockfile);
+}
+
+function has_eip($log, $eip)
+{
+    global $get_current_ip;
+
+    $ip = $get_current_ip();
+
+    if ($ip === false) {
+        $log->error('failed to get public IP');
+        return false;
+    }
+
+    if ($ip === $eip) {
+        $log->debug('found EIP', ['eip' => $eip]);
+        return true;
+    }
+
+    $log->debug('could not find EIP', ['eip' => $eip, 'current_ip' => $ip]);
+    return false;
+}
+
+function file_locked($log, $lockfile)
+{
+    if (flock($lockfile, LOCK_EX | LOCK_NB)) {
+        $log->debug('lock succeeded');
+        return true;
+    }
+
+    $log->debug('lock attempt failed');
+    return false;
+}
+
+function ensure_singleton($log, $lockfile_path, $eip)
+{
+    $terminate = function ($signal) {
+        throw new SignalInterrupt(
+            'Terminated by signal during ensure_singleton()',
+            $signal
+        );
+    };
+    pcntl_signal(SIGTERM, $terminate);
+    pcntl_signal(SIGINT, $terminate);
+    pcntl_signal(SIGQUIT, $terminate);
+
+    // This lockfile (and its lock) will be closed when this process is exited.
+    $lockfile = fopen($lockfile_path, 'w+');
+    if ($lockfile === false) {
+        $log->fatal('failed to open lockfile', ['path' => $lockfile_path]);
+        throw new Exception('failed to open lockfile');
+    }
+
+    while (!has_eip($log, $eip) || !file_locked($log, $lockfile)) {
+        pcntl_signal_dispatch();
+        sleep(10);
+    }
+
+    $log->info('ensured singleton');
+    return $lockfile;
 }
