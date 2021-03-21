@@ -2,18 +2,22 @@
 
 set -eux
 
-signal_file=work/restart.fifo
+restart_sig_fifo=work/restart.fifo
+stopped_sig_fifo=work/stopped.fifo
+cleaned_sig_fifo=work/cleaned.fifo
 
 command="$1"
 mkdir -p work
-mkfifo "$signal_file"
-trap "rm -f $signal_file" EXIT
+mkfifo "$restart_sig_fifo" "$stopped_sig_fifo" "$cleaned_sig_fifo"
+trap "rm -f $restart_sig_fifo $stopped_sig_fifo $cleaned_sig_fifo" EXIT
 build/cavalcade-runner/wait-for-sql 'DESCRIBE wptests_cavalcade_jobs;'
 pid=0
-while [ "$(cat "$signal_file")" != exit ]; do
+while [ "$(cat "$restart_sig_fifo")" != exit ]; do
   if [ "$pid" -ne 0 ]; then
-    kill "$pid"
+    kill "$pid" || true
   fi
+  printf '\n' > "$stopped_sig_fifo"
+  cat "$cleaned_sig_fifo" > /dev/null
   $command &
   pid="$!"
 done

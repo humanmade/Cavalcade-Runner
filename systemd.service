@@ -1,4 +1,4 @@
-# Typically, place in your /lib/systemd/system/ folder and sudo systemctl enable cavalcade.service
+# Typically, place in your /lib/systemd/system/ folder and sudo systemctl enable cavalcade-runner.service
 [Unit]
 Description=CavalcadeRunner
 
