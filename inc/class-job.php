@@ -46,7 +46,7 @@ class Job
             return false;
         }
 
-        $query = "SELECT `domain`, `path` FROM `$this->table`
+        $query = "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs`
                   WHERE `blog_id` = :site";
 
         $statement = $this->db->prepare($query);
