@@ -405,17 +405,17 @@ class Runner
             $pipes_stderr[$id] = $worker->pipes[2];
         }
 
-        $dummy_a = $dummy_b = null;
-
-        $changed_stdout = stream_select($pipes_stdout, $dummy_a, $dummy_b, 0);
+        $out_write = $out_except = [];
+        $changed_stdout = stream_select($pipes_stdout, $out_write, $out_except, 0);
         if ($changed_stdout === false) {
-            // An error occured!
+            $this->log->warn('stream_select failed');
             return;
         }
 
-        $changed_stderr = stream_select($pipes_stderr, $dummy_a, $dummy_b, 0);
+        $err_write = $err_except = [];
+        $changed_stderr = stream_select($pipes_stderr, $err_write, $err_except, 0);
         if ($changed_stderr === false) {
-            // An error occured!
+            $this->log->warn('stream_select failed');
             return;
         }
 

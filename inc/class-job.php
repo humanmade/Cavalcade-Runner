@@ -12,7 +12,9 @@ class Job
     public $id;
     public $site;
     public $hook;
+    public $hook_instance;
     public $args;
+    public $args_digest;
     public $nextrun;
     public $interval;
     public $status;
@@ -25,10 +27,12 @@ class Job
 
     protected $db;
     protected $table_prefix;
+    protected $table;
 
     public function __construct($db, $table_prefix)
     {
         $this->db = $db;
+        $this->table = "{$table_prefix}cavalcade_jobs";
         $this->table_prefix = $table_prefix;
     }
 
@@ -42,8 +46,8 @@ class Job
             return false;
         }
 
-        $query = "SELECT domain, path FROM {$this->table_prefix}blogs
-                  WHERE blog_id = :site";
+        $query = "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs`
+                  WHERE `blog_id` = :site";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':site', $this->site);
@@ -66,9 +70,9 @@ class Job
         $started_at = new DateTime('now', new DateTimeZone('UTC'));
         $this->started_at = $started_at->format(MYSQL_DATE_FORMAT);
 
-        $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                  SET status = \"running\", started_at = :started_at
-                  WHERE status = \"waiting\" AND id = :id";
+        $query = "UPDATE `$this->table`
+                  SET `status` = 'running', `started_at` = :started_at
+                  WHERE `status` = 'waiting' AND id = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);
@@ -87,9 +91,9 @@ class Job
         if ($this->interval) {
             $this->reschedule();
         } else {
-            $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                      SET status = \"done\", finished_at = :finished_at
-                      WHERE id = :id";
+            $query = "UPDATE `$this->table`
+                      SET `status` = 'done', `finished_at` = :finished_at
+                      WHERE `id` = :id";
 
             $statement = $this->db->prepare($query);
             $statement->bindValue(':id', $this->id);
@@ -106,9 +110,9 @@ class Job
 
         $this->status = 'waiting';
 
-        $query = "UPDATE {$this->table_prefix}cavalcade_jobs
-                  SET status = :status, nextrun = :nextrun, finished_at = :finished_at
-                  WHERE id = :id";
+        $query = "UPDATE `$this->table`
+                  SET `status` = :status, `nextrun` = :nextrun, `finished_at` = :finished_at
+                  WHERE `id` = :id";
 
         $statement = $this->db->prepare($query);
         $statement->bindValue(':id', $this->id);

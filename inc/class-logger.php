@@ -56,7 +56,9 @@ class Logger
         return [
             'job_id' => intval($job->id),
             'hook' => $job->hook,
+            'hook_instance' => $job->hook_instance,
             'args' => $job->args,
+            'args_digest' => $job->args_digest,
             'nextrun' => $job->nextrun,
             'interval' => $job->interval,
             'status' => $job->status,
