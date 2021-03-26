@@ -18,6 +18,35 @@ $runner->hooks->register('Runner.run.before', function () {
     file_put_contents('/workspace/work/runner-started', "\n");
     file_put_contents('/workspace/work/runner-wptest.fifo', "\n");
 });
+
+$runner->hooks->register('Runner.run_job.acquiring_lock', function ($db, $job) {
+    if ($job->hook === 'test_job_acquiring_lock_error') {
+        $stmt = $db->prepare("ALTER TABLE `wptests_cavalcade_jobs` MODIFY `status` enum('waiting','done') NOT NULL DEFAULT 'waiting'");
+        $stmt->execute();
+    }
+});
+
+$runner->hooks->register('Runner.run_job.canceling_lock', function ($db, $job) {
+    if ($job->hook === 'test_job_canceling_lock_error') {
+        $stmt = $db->prepare("ALTER TABLE `wptests_cavalcade_jobs` MODIFY `status` enum('running','done') NOT NULL DEFAULT 'running'");
+        $stmt->execute();
+    }
+});
+
+$runner->hooks->register('Runner.job_command.command', function ($command, $job) {
+    if ($job->hook === 'test_job_canceling_lock_error') {
+        throw new Exception('exception for testing');
+    }
+
+    return $command;
+});
+
+$runner->hooks->register('Runner.check_workers.job_finishing', function ($db, $worker, $job) {
+    if ($job->hook === 'test_job_finishing_error') {
+        $stmt = $db->prepare("ALTER TABLE `wptests_cavalcade_jobs` MODIFY `status` enum('running','waiting') NOT NULL DEFAULT 'waiting'");
+        $stmt->execute();
+    }
+});
 EOS;
 
 const CAVALCADE_GET_IP = <<<'EOS'

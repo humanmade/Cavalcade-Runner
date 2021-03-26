@@ -6,7 +6,7 @@ step="$1"
 
 mkdir -p work
 
-command='bin/cavalcade-runner-test -l work/cavalcade-runner.log -p work/cavalcade-runner.pid -b /www -w 10 -i 2 -d 6 -e 192.0.2.255 -k work/runner.lock'
+command='bin/cavalcade-runner-test -l work/cavalcade-runner.log -p work/cavalcade-runner.pid -b /www -w 10 -i 2 -d 6 -e 192.0.2.255 -k work/runner.lock -z 2000'
 
 case "$step" in
   validate)

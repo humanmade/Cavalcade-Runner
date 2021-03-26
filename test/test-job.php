@@ -2,10 +2,6 @@
 
 namespace HM\Cavalcade\Runner\Tests;
 
-const JOB = 'test_job';
-const FAILED_JOB = 'failed_test_job';
-const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
-
 class Test_Job extends CavalcadeRunner_TestCase
 {
     private static function go_wpcli_blocking()
@@ -18,18 +14,12 @@ class Test_Job extends CavalcadeRunner_TestCase
         file_get_contents(WPCLI_WPTEST_FIFO);
     }
 
-    private static function get_job($job)
+    private function get_job($job)
     {
         global $wpdb;
 
-        $sql = $wpdb->prepare(
-            "SELECT * FROM {$wpdb->base_prefix}cavalcade_jobs WHERE hook = %s",
-            [$job],
-        );
-
+        $sql = $wpdb->prepare("SELECT * FROM `$this->table` WHERE `hook` = %s", [$job]);
         $res = $wpdb->get_results($sql);
-
-        // echo var_export($res, true);
 
         return 0 < count($res) ? $res[0] : null;
     }
@@ -43,7 +33,7 @@ class Test_Job extends CavalcadeRunner_TestCase
     {
         $pre_time = time();
         wp_schedule_single_event($pre_time, JOB, [__FUNCTION__]);
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_WAITING, $job->status);
         $this->assertNull($job->started_at);
         $this->assertNull($job->finished_at);
@@ -51,7 +41,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         self::wait_wpcli_blocking();
 
         $in_time = time();
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_RUNNING, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertNull($job->finished_at);
@@ -62,7 +52,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
 
         $post_time = time();
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
@@ -76,24 +66,24 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(3);
 
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 
-        $this->assertNull(self::get_job(JOB));
+        $this->assertNull($this->get_job(JOB));
     }
 
     function test_schedule_event()
     {
         $pre_time = time();
         wp_schedule_event($pre_time, RECUR_HOURLY, JOB, [__FUNCTION__]);
-        $this->assertEquals(STATUS_WAITING, self::get_job(JOB)->status);
+        $this->assertEquals(STATUS_WAITING, $this->get_job(JOB)->status);
 
         self::wait_wpcli_blocking();
 
         $in_time = time();
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_RUNNING, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertNull($job->finished_at);
@@ -104,7 +94,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
 
         $post_time = time();
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_WAITING, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
@@ -118,7 +108,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(9);
 
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_WAITING, $job->status);
     }
 
@@ -137,7 +127,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         sleep(3);
 
         $post_time = time();
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
@@ -146,12 +136,12 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(3);
 
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 
-        $this->assertNull(self::get_job(JOB));
+        $this->assertNull($this->get_job(JOB));
     }
 
     function test_clear_schedule_immediately()
@@ -171,7 +161,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
 
         $post_time = time();
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_WAITING, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
@@ -179,12 +169,12 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(3);
 
-        $job = self::get_job(JOB);
+        $job = $this->get_job(JOB);
         $this->assertEquals(STATUS_WAITING, $job->status);
 
         sleep(6);
 
-        $this->assertNull(self::get_job(JOB));
+        $this->assertNull($this->get_job(JOB));
     }
 
     function test_failed_event()
@@ -202,7 +192,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
 
         $post_time = time();
-        $job = self::get_job(FAILED_JOB);
+        $job = $this->get_job(FAILED_JOB);
         $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
@@ -211,11 +201,34 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(3);
 
-        $job = self::get_job(FAILED_JOB);
+        $job = $this->get_job(FAILED_JOB);
         $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 
-        $this->assertNull(self::get_job(FAILED_JOB));
+        $this->assertNull($this->get_job(FAILED_JOB));
+    }
+
+    function test_chatty_event()
+    {
+        wp_schedule_single_event(time(), JOB_CHATTY);
+
+        self::wait_wpcli_blocking();
+        self::go_wpcli_blocking();
+
+        sleep(3);
+
+        $log_lines = explode("\n", file_get_contents(RUNNER_LOG));
+
+        foreach ($log_lines as $line) {
+            if (strstr($line, '"job completed"') !== false) {
+                $log = json_decode($line);
+                $this->assertEquals(MAX_LOG_SIZE, strlen($log->stdout));
+                $this->assertEquals(MAX_LOG_SIZE, strlen($log->stderr));
+                $this->assertEquals(MAX_LOG_SIZE, strlen($log->error_log));
+                return;
+            }
+        }
+        $this->fail();
     }
 }

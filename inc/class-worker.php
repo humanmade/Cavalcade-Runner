@@ -8,21 +8,34 @@ class Worker
     public $pipes = [];
     public $job;
 
-    public $output = '';
-    public $error_output = '';
-    public $status = null;
-
-    protected $log;
-    protected $error_log_output;
+    protected $status = null;
+    protected $max_log_size;
     protected $error_log_file;
 
-    public function __construct($process, $pipes, Job $job, $log, $error_log_file)
+    protected $output = '';
+    protected $error_output = '';
+    protected $error_log_output = '';
+
+    protected $log;
+
+    public function __construct($process, $pipes, Job $job, $log, $error_log_file, $max_log_size)
     {
         $this->process = $process;
         $this->pipes = $pipes;
         $this->job = $job;
         $this->log = $log;
         $this->error_log_file = $error_log_file;
+        $this->max_log_size = $max_log_size;
+    }
+
+    public static function log_values(Worker $worker)
+    {
+        return Job::log_values($worker->job) + [
+            'stdout' => $worker->get_stdout(),
+            'stderr' => $worker->get_stderr(),
+            'error_log' => $worker->get_error_log(),
+            'proc' => $worker->get_status(),
+        ];
     }
 
     public function is_done()
@@ -32,6 +45,10 @@ class Worker
         }
 
         $this->status = proc_get_status($this->process);
+        if ($this->status === false) {
+            $this->log->error('proc_get_status() failed', self::log_values($this));
+            return true;
+        }
         $this->log->debug('worker status', ['job_id' => $this->job->id, 'status' => $this->status]);
         return !$this->status['running'];
     }
@@ -50,12 +67,26 @@ class Worker
      */
     public function drain_pipes()
     {
-        while ($data = fread($this->pipes[1], 1024)) {
-            $this->output .= $data;
+        while ($data = @fread($this->pipes[1], 1024)) {
+            if ($data === false) {
+                break;
+            }
+            $this->output .= substr(
+                $data,
+                0,
+                $this->max_log_size - strlen($this->output),
+            );
         }
 
-        while ($data = fread($this->pipes[2], 1024)) {
-            $this->error_output .= $data;
+        while ($data = @fread($this->pipes[2], 1024)) {
+            if ($data === false) {
+                break;
+            }
+            $this->error_output .= substr(
+                $data,
+                0,
+                $this->max_log_size - strlen($this->error_output),
+            );
         }
     }
 
@@ -70,14 +101,20 @@ class Worker
 
         $this->drain_pipes();
         $this->output = self::strip_shebang($this->output);
-        $this->error_log_output = file_get_contents($this->error_log_file);
-        fclose($this->pipes[1]);
-        fclose($this->pipes[2]);
-        unlink($this->error_log_file);
-        proc_close($this->process);
+        $this->error_log_output = file_get_contents(
+            $this->error_log_file,
+            false,
+            null,
+            0,
+            $this->max_log_size,
+        );
+        @fclose($this->pipes[1]);
+        @fclose($this->pipes[2]);
+        @unlink($this->error_log_file);
+        @proc_close($this->process);
         unset($this->process);
 
-        return $this->status['exitcode'] === 0;
+        return isset($this->status['exitcode']) && $this->status['exitcode'] === 0;
     }
 
     public function get_stdout()
