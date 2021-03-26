@@ -26,6 +26,7 @@ curl -fsSL \
   > "$tmp_caval"
 unzip -q -d "$tmpd_caval" "$tmp_caval"
 mkdir -p /wp/wp-content/mu-plugins
+mv "$tmpd_caval/cavalcade/db.php" /wp/wp-content/db.php
 mv "$tmpd_caval/cavalcade" /wp/wp-content/mu-plugins
 printf "<?php\nrequire_once __DIR__ . '/cavalcade/plugin.php';" > /wp/wp-content/mu-plugins/cavalcade.php
 

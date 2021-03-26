@@ -4,6 +4,7 @@ namespace HM\Cavalcade\Runner\Tests;
 
 const JOB = 'test_job';
 const FAILED_JOB = 'failed_test_job';
+const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
 
 class Test_Job extends CavalcadeRunner_TestCase
 {
@@ -65,7 +66,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
-        $this->assertNull($job->deleted_at);
+        $this->assertEquals(EMPTY_DELETED_AT, $job->deleted_at);
 
         $this->assertBetweenWeak(
             strtotime('-1 minutes'),
@@ -107,7 +108,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(STATUS_WAITING, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
-        $this->assertNull($job->deleted_at);
+        $this->assertEquals(EMPTY_DELETED_AT, $job->deleted_at);
 
         $this->assertBetweenWeak(
             strtotime('+59 minutes'),
@@ -205,7 +206,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
-        $this->assertNull($job->deleted_at);
+        $this->assertEquals(EMPTY_DELETED_AT, $job->deleted_at);
         $this->assertBetweenWeak(strtotime('-1 minutes'), time(), self::as_epoch($job->nextrun));
 
         sleep(3);
