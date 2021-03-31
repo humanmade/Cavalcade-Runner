@@ -12,7 +12,7 @@ class Hooks
     /**
      * Registered callbacks.
      *
-     * @var array<int, callable[]> Indexed array of priority => list of callbacks.
+     * @var array<string, array<int, callable[]>> Indexed array of priority => list of callbacks.
      */
     protected $callbacks = [];
 

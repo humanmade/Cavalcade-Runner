@@ -7,6 +7,7 @@ use DateTime;
 use DateTimeZone;
 use Exception;
 use PDO;
+use PDOException;
 
 const LOOP_INTERVAL = 1;
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
@@ -21,17 +22,15 @@ class Runner
     public $get_current_ip;
     public $hooks;
     public $eip;
+    public $max_log_size;
 
     protected $db;
     protected $workers = [];
     protected $wp_path;
+    protected $table_prefix;
+    protected $table;
     protected $log;
 
-    /**
-     * Instance of the runner.
-     *
-     * @var self
-     */
     protected static $instance;
 
     public function __construct(
@@ -43,7 +42,8 @@ class Runner
         $wp_base_path,
         $get_current_ip,
         $ip_check_interval,
-        $eip
+        $eip,
+        $max_log_size
     ) {
         $this->max_workers = $max_workers;
         $this->wpcli_path = $wpcli_path;
@@ -52,6 +52,7 @@ class Runner
         $this->wp_path = realpath($wp_base_path);
         $this->get_current_ip = $get_current_ip;
         $this->ip_check_interval = $ip_check_interval;
+        $this->max_log_size = $max_log_size;
         $this->eip = $eip;
         $this->hooks = new Hooks();
         $this->log = $log;
@@ -71,7 +72,8 @@ class Runner
         $wp_base_path,
         $get_current_ip,
         $ip_check_interval,
-        $eip
+        $eip,
+        $max_log_size
     ) {
         if (empty(static::$instance)) {
             static::$instance = new static(
@@ -84,10 +86,35 @@ class Runner
                 $get_current_ip,
                 $ip_check_interval,
                 $eip,
+                $max_log_size,
             );
         }
 
         return static::$instance;
+    }
+
+    public function execute_query($query, $func)
+    {
+        try {
+            $stmt = $this->db->prepare($query);
+            return $func($stmt);
+        } catch (PDOException $e) {
+            $err = $e->errorInfo;
+
+            ob_start();
+            $stmt->debugDumpParams();
+            $dump = ob_get_contents();
+            ob_end_clean();
+
+            $this->log->error('database error', [
+                'dump' => $dump,
+                'code' => $err[0],
+                'driver_code' => $err[1],
+                'error_message' => $err[2],
+            ]);
+
+            throw new Exception('database error', 0, $e);
+        }
     }
 
     public function bootstrap()
@@ -116,48 +143,83 @@ class Runner
 
         include $config_path;
         $this->table_prefix = isset($table_prefix) ? $table_prefix : 'wp_';
+        $this->table = $this->table_prefix . 'cavalcade_jobs';
 
-        /**
-         * Filter the table prefix from the configuration.
-         *
-         * @param string $table_prefix Table prefix to use for Cavalcade.
-         */
-        $this->table_prefix = $this->hooks->run('Runner.bootstrap.table_prefix', $this->table_prefix);
-
-        // Connect to the database!
         $this->connect_to_db();
 
         $this->upgrade_db();
+
+        $this->cleanup_abandoned();
     }
 
     protected function upgrade_db()
     {
         $output = $retval = null;
         exec("$this->wpcli_path --path=$this->wp_path cavalcade upgrade", $output, $retval);
-        $this->log->info('wp cavalcade upgrade executed', [
-            'output' => $output,
-            'retval' => $retval,
-        ]);
+        if ($retval === 0) {
+            $this->log->info('wp cavalcade upgrade execution succeeded', [
+                'output' => $output,
+                'retval' => $retval,
+            ]);
+        } else {
+            $this->log->fatal('wp cavalcade upgrade failed', [
+                'output' => $output,
+                'retval' => $retval,
+            ]);
+            throw new Exception('wp cavalcad upgrade error');
+        }
     }
 
     public function cleanup()
     {
         $expired = new DateTime('now', new DateTimeZone('UTC'));
         $expired->sub(new DateInterval("PT{$this->cleanup_delay}S"));
-
-        $query = "DELETE FROM {$this->table_prefix}cavalcade_jobs
-                  WHERE
-                      (deleted_at < :expired1 AND status IN ('done', 'waiting'))
-                    OR
-                      (finished_at < :expired2 AND status = 'done')";
-        $statement = $this->db->prepare($query);
         $expired_str = $expired->format(MYSQL_DATE_FORMAT);
-        $statement->bindValue(':expired1', $expired_str);
-        $statement->bindValue(':expired2', $expired_str);
-        $statement->execute();
-        $count = $statement->rowCount();
 
-        $this->log->debug('db cleaned up', ['deleted_rows' => $count]);
+        try {
+            $this->execute_query(
+                "DELETE FROM `$this->table`
+                 WHERE
+                   (`deleted_at` < :expired1 AND `status` IN ('done', 'waiting'))
+                 OR
+                   (`finished_at` < :expired2 AND `status` = 'done')",
+                function ($stmt) use ($expired_str) {
+                    $stmt->bindValue(':expired1', $expired_str);
+                    $stmt->bindValue(':expired2', $expired_str);
+                    $stmt->execute();
+                    $count = $stmt->rowCount();
+
+                    $this->log->debug('db cleaned up', ['deleted_rows' => $count]);
+                },
+            );
+        } catch (Exception $e) {
+            $this->log->error('cleanup failed', ['ex_message' => $e->getMessage()]);
+            sleep(10); // throttle
+            // keep this process running
+        }
+    }
+
+    public function cleanup_abandoned()
+    {
+        $this->execute_query(
+            "SELECT * FROM `$this->table` WHERE `status` = 'running'",
+            function ($stmt) {
+                $stmt->execute();
+                while (true) {
+                    $job = $stmt->fetchObject(__NAMESPACE__ . '\\Job', [
+                        $this->db,
+                        $this->table_prefix,
+                        $this->log,
+                    ]);
+                    if ($job === false) {
+                        break;
+                    }
+
+                    $this->log->error('abandoned worker found', Job::log_values($job));
+                    $job->mark_done();
+                }
+            },
+        );
     }
 
     public function run()
@@ -205,18 +267,7 @@ class Runner
                 continue;
             }
 
-            try {
-                $this->run_job($job);
-            } catch (Exception $e) {
-                $this->log->error('unable to run job', [
-                    'reason' => $e->getMessage(),
-                    'job_id' => intval($job->id),
-                    'hook' => $job->hook,
-                    'args' => $job->args,
-                ]);
-                $job->mark_failed($e->getMessage());
-                break;
-            }
+            $this->run_job($job);
         }
 
         $this->terminate(SIGTERM);
@@ -224,13 +275,6 @@ class Runner
 
     public function terminate($signal)
     {
-        /**
-         * Action before terminating workers.
-         *
-         * Use this to change the cleanup process.
-         *
-         * @param int $signal Signal received that caused termination.
-         */
         $this->hooks->run('Runner.terminate.will_terminate', $signal);
 
         printf(
@@ -244,13 +288,6 @@ class Runner
             usleep(100000);
         }
 
-        /**
-         * Action after terminating workers.
-         *
-         * Use this to run final shutdown commands while still connected to the database.
-         *
-         * @param int $signal Signal received that caused termination.
-         */
         $this->hooks->run('Runner.terminate.terminated', $signal);
 
         unset($this->db);
@@ -265,7 +302,7 @@ class Runner
 
     protected function connect_to_db()
     {
-        $charset = defined('DB_CHARSET') ? DB_CHARSET : 'utf8';
+        $charset = defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4';
 
         // Check if we're passed a Unix socket (`:/tmp/socket` or `localhost:/tmp/socket`)
         if (preg_match('#^[^:]*:(/.+)$#', DB_HOST, $matches)) {
@@ -274,100 +311,91 @@ class Runner
             $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, $charset);
         }
 
-        /**
-         * Filter for PDO DSN.
-         *
-         * @param string $dsn DSN passed to PDO.
-         * @param string $host Database host from config.
-         * @param string $name Database name from config.
-         * @param string $charset Character set from config, or default of 'utf8'
-         */
-        $dsn = $this->hooks->run('Runner.connect_to_db.dsn', $dsn, DB_HOST, DB_NAME, $charset);
-
-        /**
-         * Filter for PDO options.
-         *
-         * @param array $options Options to pass to PDO.
-         * @param string $dsn DSN for the connection.
-         * @param string $user User for the connection
-         * @param string $password Password for the connection.
-         */
-        $options = $this->hooks->run('Runner.connect_to_db.options', [], $dsn, DB_USER, DB_PASSWORD);
-        $this->db = new PDO($dsn, DB_USER, DB_PASSWORD, $options);
-
-        // Set it up just how we like it
+        $this->db = new PDO($dsn, DB_USER, DB_PASSWORD);
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->db->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
         $this->db->exec('SET time_zone = "+00:00"');
 
-        /**
-         * Action after connecting to the database.
-         *
-         * Use the PDO object to set additional attributes as needed.
-         *
-         * @param PDO $db PDO database connection.
-         */
         $this->hooks->run('Runner.connect_to_db.connected', $this->db);
     }
 
-    /**
-     * Get next job to run
-     *
-     * @return stdClass|null
-     */
     protected function get_next_job()
     {
-        $query = "SELECT * FROM {$this->table_prefix}cavalcade_jobs
-                  WHERE nextrun < NOW()
-                  AND status = \"waiting\"
-                  ORDER BY nextrun ASC
-                  LIMIT 1";
-
-        /**
-         * Filter for the next job query.
-         *
-         * @param string $query Database query for the next job.
-         */
-        $query = $this->hooks->run('Runner.get_next_job.query', $query);
-
-        $statement = $this->db->prepare($query);
-        $statement->execute();
-
-        $data = $statement->fetchObject(__NAMESPACE__ . '\\Job', [$this->db, $this->table_prefix]);
-        /**
-         * Filter for the next job.
-         *
-         * @param Job $data Next job to be run.
-         */
-        return $this->hooks->run('Runner.get_next_job.job', $data);
+        try {
+            return $this->execute_query(
+                "SELECT * FROM `$this->table`
+                 WHERE `nextrun` < NOW()
+                 AND `status` = 'waiting'
+                 ORDER BY `nextrun` ASC
+                 LIMIT 1",
+                function ($stmt) {
+                    $stmt->execute();
+                    return $stmt->fetchObject(__NAMESPACE__ . '\\Job', [
+                        $this->db,
+                        $this->table_prefix,
+                        $this->log,
+                    ]);
+                },
+            );
+        } catch (Exception $e) {
+            $this->log->error('failed to get next job', ['ex_message' => $e->getMessage()]);
+            sleep(10); // throttle
+            return false;
+        }
     }
 
     protected function run_job($job)
     {
-        $has_lock = $job->acquire_lock();
-        if (!$has_lock) {
+        try {
+            try {
+                $this->hooks->run('Runner.run_job.acquiring_lock', $this->db, $job);
+                $has_lock = $job->acquire_lock();
+                if (!$has_lock) {
+                    return;
+                }
+
+                $error_log_file = tempnam('/tmp', 'cavalcade');
+                if ($error_log_file === false) {
+                    $this->log->error('failed to create tmp file');
+                    throw new Exception('failed to create tmp file');
+                }
+                $command = $this->job_command($job, $error_log_file);
+                $this->log->debug('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
+
+                $spec = [
+                    1 => ['pipe', 'w'], // stdout
+                    2 => ['pipe', 'w'], // stderr
+                ];
+                $process = proc_open($command, $spec, $pipes, $this->wp_path);
+
+                if (!is_resource($process)) {
+                    throw new Exception('unable to proc_open()');
+                }
+
+                // Disable blocking to allow partial stream reads before EOF.
+                if (!stream_set_blocking($pipes[1], false)) {
+                    throw new Exception('failed to set stdout to non-blocking');
+                }
+                if (!stream_set_blocking($pipes[2], false)) {
+                    throw new Exception('failed to set stderr to non-blocking');
+                }
+            } finally {
+                $worker = new Worker($process, $pipes, $job, $this->log, $error_log_file, $this->max_log_size);
+            }
+        } catch (Exception $e) {
+            $this->log->error('exception during starting job', [
+                'ex_message' => $e->getMessage(),
+            ]);
+            $worker->shutdown();
+            try {
+                $this->hooks->run('Runner.run_job.canceling_lock', $this->db, $job);
+                $job->cancel_lock();
+            } catch (Exception $e) {
+                $this->log->error('failed to cancel lock', ['ex_message' => $e->getMessage()]);
+            }
+            sleep(10); // throttle
             return;
         }
-
-        $error_log_file = tempnam('/tmp', 'cavalcade');
-        $command = $this->job_command($job, $error_log_file);
-        $this->log->debug('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
-
-        $spec = [
-            1 => ['pipe', 'w'], // stdout
-            2 => ['pipe', 'w'], // stderr
-        ];
-        $process = proc_open($command, $spec, $pipes, $this->wp_path);
-
-        if (!is_resource($process)) {
-            throw new Exception('Unable to proc_open.');
-        }
-
-        // Disable blocking to allow partial stream reads before EOF.
-        stream_set_blocking($pipes[1], false);
-        stream_set_blocking($pipes[2], false);
-
-        $worker = new Worker($process, $pipes, $job, $this->log, $error_log_file);
         $this->workers[] = $worker;
 
         $this->log->debug('worker started', ['job_id' => $job->id]);
@@ -384,13 +412,7 @@ class Runner
             $command .= ' --url=' . escapeshellarg($siteurl);
         }
 
-        /**
-         * Filter for the command to be run for the job.
-         *
-         * @param string $command Full shell command to be run to start the job.
-         * @param Job $job Job to be run.
-         */
-        return $this->hooks->run('Runner.get_job_command.command', $command, $job);
+        return $this->hooks->run('Runner.job_command.command', $command, $job);
     }
 
     protected function check_workers()
@@ -432,17 +454,29 @@ class Runner
                 continue;
             }
 
-            if ($worker->shutdown()) {
-                $worker->job->mark_done();
-                $this->log->job_completed($worker);
-                $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job);
-            } else {
-                $worker->job->mark_done();
-                $this->log->job_failed($worker, 'failed to shutdown worker');
-                $this->hooks->run('Runner.check_workers.job_failed', $worker, $worker->job);
+            try {
+                $this->hooks->run('Runner.check_workers.job_finishing', $this->db, $worker, $worker->job);
+                if ($worker->shutdown()) {
+                    $worker->job->mark_done();
+                    $this->log->info('job completed', Worker::log_values($worker));
+                    $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job);
+                } else {
+                    $worker->job->mark_done();
+                    $this->log->error(
+                        'job failed: failed to shutdown worker',
+                        Worker::log_values($worker),
+                    );
+                    $this->hooks->run('Runner.check_workers.job_failed', $worker, $worker->job);
+                }
+            } catch (Exception $e) {
+                $this->log->error('failed to finish job properly', [
+                    'ex_message' => $e->getMessage(),
+                ]);
+                sleep(10); // throttle
+                // keep running
+            } finally {
+                unset($this->workers[$id]);
             }
-
-            unset($this->workers[$id]);
         }
     }
 }

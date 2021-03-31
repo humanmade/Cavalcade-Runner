@@ -5,7 +5,9 @@ namespace HM\Cavalcade\Runner;
 use DateInterval;
 use DateTime;
 use DateTimeZone;
+use Exception;
 use PDO;
+use PDOException;
 
 class Job
 {
@@ -28,34 +30,84 @@ class Job
     protected $db;
     protected $table_prefix;
     protected $table;
+    protected $log;
 
-    public function __construct($db, $table_prefix)
+    public function __construct($db, $table_prefix, $log)
     {
         $this->db = $db;
-        $this->table = "{$table_prefix}cavalcade_jobs";
+        $this->table = $table_prefix . 'cavalcade_jobs';
         $this->table_prefix = $table_prefix;
+        $this->log = $log;
+    }
+
+    public static function log_values(Job $job)
+    {
+        return [
+            'job_id' => intval($job->id),
+            'hook' => $job->hook,
+            'hook_instance' => $job->hook_instance,
+            'args' => $job->args,
+            'args_digest' => $job->args_digest,
+            'nextrun' => $job->nextrun,
+            'interval' => $job->interval,
+            'status' => $job->status,
+            'schedule' => $job->schedule,
+            'registered_at' => $job->registered_at,
+            'revised_at' => $job->revised_at,
+            'started_at' => $job->started_at,
+            'finished_at' => $job->finished_at,
+            'deleted_at' => $job->deleted_at,
+        ];
+    }
+
+    public function execute_query($query, $func)
+    {
+        try {
+            $stmt = $this->db->prepare($query);
+            return $func($stmt);
+        } catch (PDOException $e) {
+            $err = $e->errorInfo;
+
+            ob_start();
+            $stmt->debugDumpParams();
+            $dump = ob_get_contents();
+            ob_end_clean();
+
+            $this->log->error('database error', [
+                'dump' => $dump,
+                'code' => $err[0],
+                'driver_code' => $err[1],
+                'error_message' => $err[2],
+            ]);
+
+            throw new Exception('database error', 0, $e);
+        }
     }
 
     public function get_site_url()
     {
-        $query = "SHOW TABLES LIKE '{$this->table_prefix}blogs'";
-        $statement = $this->db->prepare($query);
-        $statement->execute();
+        $row_count = $this->execute_query(
+            "SHOW TABLES LIKE '{$this->table_prefix}blogs'",
+            function ($stmt) {
+                $stmt->execute();
+                return $stmt->rowCount();
+            },
+        );
 
-        if (0 === $statement->rowCount()) {
+        if (0 === $row_count) {
             return false;
         }
 
-        $query = "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs`
-                  WHERE `blog_id` = :site";
+        return $this->execute_query(
+            "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs` WHERE `blog_id` = :site",
+            function ($stmt) {
+                $stmt->bindValue(':site', $this->site);
+                $stmt->execute();
 
-        $statement = $this->db->prepare($query);
-        $statement->bindValue(':site', $this->site);
-        $statement->execute();
-
-        $data = $statement->fetch(PDO::FETCH_ASSOC);
-        $url = $data['domain'] . $data['path'];
-        return $url;
+                $data = $stmt->fetch(PDO::FETCH_ASSOC);
+                return $data['domain'] . $data['path'];
+            },
+        );
     }
 
     /**
@@ -70,17 +122,31 @@ class Job
         $started_at = new DateTime('now', new DateTimeZone('UTC'));
         $this->started_at = $started_at->format(MYSQL_DATE_FORMAT);
 
-        $query = "UPDATE `$this->table`
-                  SET `status` = 'running', `started_at` = :started_at
-                  WHERE `status` = 'waiting' AND id = :id";
+        return $this->execute_query(
+            "UPDATE `$this->table`
+             SET `status` = 'running', `started_at` = :started_at
+             WHERE `status` = 'waiting' AND id = :id",
+            function ($stmt) {
+                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':started_at', $this->started_at);
+                $stmt->execute();
 
-        $statement = $this->db->prepare($query);
-        $statement->bindValue(':id', $this->id);
-        $statement->bindValue(':started_at', $this->started_at);
-        $statement->execute();
+                return $stmt->rowCount() === 1;
+            },
+        );
+    }
 
-        $rows = $statement->rowCount();
-        return ($rows === 1);
+    public function cancel_lock()
+    {
+        $this->execute_query(
+            "UPDATE `$this->table`
+             SET `status` = 'waiting', `started_at` = NULL
+             WHERE id = :id",
+            function ($stmt) {
+                $stmt->bindValue(':id', $this->id);
+                $stmt->execute();
+            },
+        );
     }
 
     public function mark_done()
@@ -91,14 +157,16 @@ class Job
         if ($this->interval) {
             $this->reschedule();
         } else {
-            $query = "UPDATE `$this->table`
-                      SET `status` = 'done', `finished_at` = :finished_at
-                      WHERE `id` = :id";
-
-            $statement = $this->db->prepare($query);
-            $statement->bindValue(':id', $this->id);
-            $statement->bindValue(':finished_at', $this->finished_at);
-            $statement->execute();
+            $this->execute_query(
+                "UPDATE `$this->table`
+                 SET `status` = 'done', `finished_at` = :finished_at
+                 WHERE `id` = :id",
+                function ($stmt) {
+                    $stmt->bindValue(':id', $this->id);
+                    $stmt->bindValue(':finished_at', $this->finished_at);
+                    $stmt->execute();
+                },
+            );
         }
     }
 
@@ -110,15 +178,17 @@ class Job
 
         $this->status = 'waiting';
 
-        $query = "UPDATE `$this->table`
-                  SET `status` = :status, `nextrun` = :nextrun, `finished_at` = :finished_at
-                  WHERE `id` = :id";
-
-        $statement = $this->db->prepare($query);
-        $statement->bindValue(':id', $this->id);
-        $statement->bindValue(':status', $this->status);
-        $statement->bindValue(':nextrun', $this->nextrun);
-        $statement->bindValue(':finished_at', $this->finished_at);
-        $statement->execute();
+        $this->execute_query(
+            "UPDATE `$this->table`
+             SET `status` = :status, `nextrun` = :nextrun, `finished_at` = :finished_at
+             WHERE `id` = :id",
+            function ($stmt) {
+                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':status', $this->status);
+                $stmt->bindValue(':nextrun', $this->nextrun);
+                $stmt->bindValue(':finished_at', $this->finished_at);
+                $stmt->execute();
+            },
+        );
     }
 }

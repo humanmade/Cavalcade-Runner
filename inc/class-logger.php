@@ -50,41 +50,6 @@ class Logger
         }
     }
 
-    protected static function worker_values(Worker $worker)
-    {
-        $job = $worker->job;
-        return [
-            'job_id' => intval($job->id),
-            'hook' => $job->hook,
-            'hook_instance' => $job->hook_instance,
-            'args' => $job->args,
-            'args_digest' => $job->args_digest,
-            'nextrun' => $job->nextrun,
-            'interval' => $job->interval,
-            'status' => $job->status,
-            'schedule' => $job->schedule,
-            'registered_at' => $job->registered_at,
-            'revised_at' => $job->revised_at,
-            'started_at' => $job->started_at,
-            'finished_at' => $job->finished_at,
-            'deleted_at' => $job->deleted_at,
-            'stdout' => $worker->get_stdout(),
-            'stderr' => $worker->get_stderr(),
-            'error_log' => $worker->get_error_log(),
-            'proc' => $worker->get_status(),
-        ];
-    }
-
-    public function job_completed($worker)
-    {
-        $this->info('job completed', self::worker_values($worker));
-    }
-
-    public function job_failed($worker, $message = '')
-    {
-        $this->error('job failed: ' . $message, $this->worker_values($worker));
-    }
-
     public function debug($message, $values = [])
     {
         $this->do_logging('DEBUG', $message, $values);
