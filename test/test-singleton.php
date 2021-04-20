@@ -74,4 +74,16 @@ class Test_Singleton extends CavalcadeRunner_TestCase
         sleep(20);
         $this->assertFalse(flock($this->lockfile, LOCK_EX | LOCK_NB));
     }
+
+    function test_maintenance_mode()
+    {
+        file_put_contents(DOT_MAINTENANCE, '<?php ');
+
+        file_put_contents(PUBLIC_IP, EIP);
+        flock($this->lockfile, LOCK_UN);
+
+        sleep(20);
+
+        $this->assertFileNotExists(RUNNER_STARTED);
+    }
 }

@@ -231,4 +231,26 @@ class Test_Job extends CavalcadeRunner_TestCase
         }
         $this->fail();
     }
+
+    function test_maintenance_mode()
+    {
+        wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
+
+        sleep(2);
+
+        $this->assertFalse(self::log_exists('"shutting down"'));
+
+        self::wait_wpcli_blocking();
+
+        file_put_contents(DOT_MAINTENANCE, '<?php ');
+        sleep(2);
+
+        self::go_wpcli_blocking();
+
+        sleep(2);
+
+        $this->assertTrue(self::log_exists('"shutting down"'));
+        $job = $this->get_job(JOB);
+        $this->assertEquals(STATUS_DONE, $job->status);
+    }
 }

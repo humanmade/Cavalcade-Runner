@@ -22,6 +22,7 @@ const LOCKFILE = '/workspace/work/runner.lock';
 const RESTART_SIG_FIFO = '/workspace/work/restart.fifo';
 const STOPPED_SIG_FIFO = '/workspace/work/stopped.fifo';
 const CLEANED_SIG_FIFO = '/workspace/work/cleaned.fifo';
+const DOT_MAINTENANCE = '/www-work/.maintenance';
 const PUBLIC_IP = '/workspace/work/public-ip';
 const EPHEMERAL_IP = '192.0.2.1';
 const EIP = '192.0.2.255';
@@ -49,6 +50,12 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
     {
         $time = (new DateTime())->format(DateTime::RFC3339_EXTENDED);
         echo "$time $message";
+    }
+
+    public static function log_exists($text)
+    {
+        $content = file_get_contents(RUNNER_LOG);
+        return strpos($content, $text) !== false;
     }
 
     function setUp()
@@ -86,6 +93,7 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         @unlink(ACTUAL_FUNCTION);
         @unlink(RUNNER_STARTED);
         @unlink(RUNNER_LOG);
+        @unlink(DOT_MAINTENANCE);
 
         $this->lockfile = fopen(LOCKFILE, 'w+');
         flock($this->lockfile, LOCK_EX);
