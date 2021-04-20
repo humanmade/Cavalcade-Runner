@@ -11,6 +11,7 @@ use PDOException;
 
 const LOOP_INTERVAL = 1;
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
+const MAINTENANCE_FILE = '.maintenance';
 
 class Runner
 {
@@ -27,6 +28,7 @@ class Runner
     protected $db;
     protected $workers = [];
     protected $wp_path;
+    protected $maintenance_path;
     protected $table_prefix;
     protected $table;
     protected $log;
@@ -50,6 +52,7 @@ class Runner
         $this->cleanup_interval = $cleanup_interval;
         $this->cleanup_delay = $cleanup_delay;
         $this->wp_path = realpath($wp_base_path);
+        $this->maintenance_path = $this->wp_path . '/' . MAINTENANCE_FILE;
         $this->get_current_ip = $get_current_ip;
         $this->ip_check_interval = $ip_check_interval;
         $this->max_log_size = $max_log_size;
@@ -119,11 +122,6 @@ class Runner
 
     public function bootstrap()
     {
-        // Check some requirements first
-        if (!function_exists('pcntl_signal')) {
-            throw new Exception('pcntl extension is required');
-        }
-
         $config_path = $this->wp_path . '/wp-config.php';
         if (!file_exists($config_path)) {
             $config_path = realpath($this->wp_path . '/../wp-config.php');
@@ -222,6 +220,15 @@ class Runner
         );
     }
 
+    public function is_maintenance_mode()
+    {
+        $in_maintenance = file_exists($this->maintenance_path);
+        if ($in_maintenance) {
+            $this->log->debug('is maintenance mode', ['file' => $this->maintenance_path]);
+        }
+        return $in_maintenance;
+    }
+
     public function run()
     {
         pcntl_signal(SIGTERM, [$this, 'terminate']);
@@ -246,6 +253,11 @@ class Runner
                     );
                     break;
                 }
+            }
+
+            if ($this->is_maintenance_mode()) {
+                $this->log->info('maintenance mode activated: exiting like receiving SIGTERM');
+                break;
             }
 
             if ($this->cleanup_interval <= $now - $prev_cleanup) {

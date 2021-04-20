@@ -40,6 +40,7 @@ $get_current_ip = function () {
 file_put_contents($pid_file, $pid);
 
 try {
+    set_signal_handler();
     $lockfile = ensure_singleton($log, $lockfile_path, $eip);
     $runner = Runner::instance(
         $log,
@@ -53,6 +54,10 @@ try {
         $eip,
         $max_log_size,
     );
+    while ($runner->is_maintenance_mode()) {
+        pcntl_signal_dispatch();
+        sleep(10);
+    }
     $runner->bootstrap();
     /*CAVALCADE_HOOKS_FOR_TESTING*/
     $log->info('Cavalcade Runner started');
@@ -102,7 +107,7 @@ function file_locked($log, $lockfile)
     return false;
 }
 
-function ensure_singleton($log, $lockfile_path, $eip)
+function set_signal_handler()
 {
     $terminate = function ($signal) {
         throw new SignalInterrupt(
@@ -113,7 +118,10 @@ function ensure_singleton($log, $lockfile_path, $eip)
     pcntl_signal(SIGTERM, $terminate);
     pcntl_signal(SIGINT, $terminate);
     pcntl_signal(SIGQUIT, $terminate);
+}
 
+function ensure_singleton($log, $lockfile_path, $eip)
+{
     // This lockfile (and its lock) will be closed when this process is exited.
     $lockfile = fopen($lockfile_path, 'w+');
     if ($lockfile === false) {
