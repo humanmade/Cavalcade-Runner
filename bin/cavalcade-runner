@@ -28,11 +28,29 @@ if ($pid === null) {
     exit(1);
 }
 
-const PUBLIC_IP_URL = 'http://169.254.169.254/latest/meta-data/public-ipv4';
+const NETWORK_MACS_URL = 'http://169.254.169.254/latest/meta-data/network/interfaces/macs/';
 
-$get_current_ip = function () {
+$get_current_ips = function () {
     $ctx = stream_context_create(['http' => ['timeout' => 0.5]]);
-    return file_get_contents(PUBLIC_IP_URL, false, $ctx);
+    $get = function ($url) use ($ctx) {
+        $res = file_get_contents($url, false, $ctx);
+        if ($res === false) {
+            throw new Exception("failed to get URL: " . $url);
+        }
+        return $res;
+    };
+
+    $ips = array_merge(...array_map(
+        function ($mac) use ($get) {
+            return array_filter(array_map(
+                'trim',
+                explode("\n", $get(NETWORK_MACS_URL . $mac . 'public-ipv4s'))
+            ));
+        },
+        array_filter(array_map('trim', explode("\n", $get(NETWORK_MACS_URL))))
+    ));
+    sort($ips);
+    return $ips;
 };
 
 /*CAVALCADE_GET_IP_FOR_TESTING*/
@@ -49,7 +67,7 @@ try {
         $cleanup_interval,
         $cleanup_delay,
         $wp_base_path,
-        $get_current_ip,
+        $get_current_ips,
         $ip_check_interval,
         $eip,
         $max_log_size,
@@ -78,21 +96,21 @@ try {
 
 function has_eip($log, $eip)
 {
-    global $get_current_ip;
+    global $get_current_ips;
 
-    $ip = $get_current_ip();
-
-    if ($ip === false) {
-        $log->error('failed to get public IP');
+    try {
+        $ips = $get_current_ips();
+    } catch (Exception $e) {
+        $log->error('failed to get public IP: ' . $e->getMessage());
         return false;
     }
 
-    if ($ip === $eip) {
+    if (in_array($eip, $ips)) {
         $log->debug('found EIP', ['eip' => $eip]);
         return true;
     }
 
-    $log->debug('could not find EIP', ['eip' => $eip, 'current_ip' => $ip]);
+    $log->debug('could not find EIP', ['eip' => $eip, 'current_ips' => var_export($ips, true)]);
     return false;
 }
 
