@@ -20,7 +20,7 @@ class Runner
     public $cleanup_interval;
     public $cleanup_delay;
     public $ip_check_interval;
-    public $get_current_ip;
+    public $get_current_ips;
     public $hooks;
     public $eip;
     public $max_log_size;
@@ -42,7 +42,7 @@ class Runner
         $cleanup_interval,
         $cleanup_delay,
         $wp_base_path,
-        $get_current_ip,
+        $get_current_ips,
         $ip_check_interval,
         $eip,
         $max_log_size
@@ -53,7 +53,7 @@ class Runner
         $this->cleanup_delay = $cleanup_delay;
         $this->wp_path = realpath($wp_base_path);
         $this->maintenance_path = $this->wp_path . '/' . MAINTENANCE_FILE;
-        $this->get_current_ip = $get_current_ip;
+        $this->get_current_ips = $get_current_ips;
         $this->ip_check_interval = $ip_check_interval;
         $this->max_log_size = $max_log_size;
         $this->eip = $eip;
@@ -73,7 +73,7 @@ class Runner
         $cleanup_interval,
         $cleanup_delay,
         $wp_base_path,
-        $get_current_ip,
+        $get_current_ips,
         $ip_check_interval,
         $eip,
         $max_log_size
@@ -86,7 +86,7 @@ class Runner
                 $cleanup_interval,
                 $cleanup_delay,
                 $wp_base_path,
-                $get_current_ip,
+                $get_current_ips,
                 $ip_check_interval,
                 $eip,
                 $max_log_size,
@@ -246,7 +246,7 @@ class Runner
 
             if ($this->ip_check_interval <= $now - $prev_ip_check) {
                 $prev_ip_check = $now;
-                if ($this->eip !== ($this->get_current_ip)()) {
+                if (!in_array($this->eip, ($this->get_current_ips)())) {
                     $this->log->info(
                         'EIP stolen: exiting like receiving SIGTERM',
                         ['eip' => $this->eip]

@@ -50,8 +50,11 @@ $runner->hooks->register('Runner.check_workers.job_finishing', function ($db, $w
 EOS;
 
 const CAVALCADE_GET_IP = <<<'EOS'
-$get_current_ip = function () {
-    return file_get_contents('/workspace/work/public-ip');
+$get_current_ips = function () {
+    return [
+        '192.0.0.8', // dummy IP address
+        file_get_contents('/workspace/work/public-ip'),
+    ];
 };
 EOS;
 
