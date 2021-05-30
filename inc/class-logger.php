@@ -12,6 +12,7 @@ class Logger
 {
     protected $log_path;
     protected $log_handle;
+    protected $version;
 
     public function __construct($log_path)
     {
@@ -23,6 +24,7 @@ class Logger
     {
         $obj = new static($log_path);
         $obj->init_log_file();
+        $obj->version = trim(file_get_contents(dirname(__DIR__) . '/VERSION'));
         return $obj;
     }
 
@@ -112,6 +114,7 @@ class Logger
             'timestamp' => $now,
             'level' => $level,
             'type' => $type,
+            'version' => $this->version,
             'message' => $message,
         ], $values);
 
