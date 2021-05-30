@@ -51,8 +51,9 @@ class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
         sleep(2);
 
         $log = file_get_contents(RUNNER_LOG);
-        $this->assertEquals(2, substr_count($log, 'ERROR'));
-        $this->assertEquals(2, substr_count($log, 'abandoned worker found'));
+        $this->assertEquals(4, substr_count($log, 'ERROR'));
+        $this->assertEquals(4, substr_count($log, 'abandoned worker found'));
+        $this->assertEquals(2, substr_count($log, 'app'));
         $this->assertEquals(1, substr_count($log, 'Cavalcade Runner started'));
     }
 }

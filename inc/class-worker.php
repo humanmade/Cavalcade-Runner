@@ -49,7 +49,7 @@ class Worker
             $this->log->error('proc_get_status() failed', self::log_values($this));
             return true;
         }
-        $this->log->debug('worker status', ['job_id' => $this->job->id, 'status' => $this->status]);
+        $this->log->debug_app('worker status', ['job_id' => $this->job->id, 'status' => $this->status]);
         return !$this->status['running'];
     }
 

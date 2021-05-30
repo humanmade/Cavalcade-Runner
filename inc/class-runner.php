@@ -152,19 +152,35 @@ class Runner
 
     protected function upgrade_db()
     {
-        $output = $retval = null;
-        exec("$this->wpcli_path --path=$this->wp_path cavalcade upgrade", $output, $retval);
-        if ($retval === 0) {
+        $spec = [
+            1 => ['pipe', 'w'], // stdout
+            2 => ['pipe', 'w'], // stderr
+        ];
+        $command = "$this->wpcli_path --no-color --path=$this->wp_path cavalcade upgrade";
+        $process = proc_open($command, $spec, $pipes, $this->wp_path);
+        if (!is_resource($process)) {
+            throw new Exception('unable to proc_open()');
+        }
+
+        $stdout = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+        $exit_code = proc_close($process);
+
+        if ($exit_code === 0) {
             $this->log->info('wp cavalcade upgrade execution succeeded', [
-                'output' => $output,
-                'retval' => $retval,
+                'stdout' => $stdout,
+                'stderr' => $stderr,
+                'exit_code' => $exit_code,
             ]);
         } else {
             $this->log->fatal('wp cavalcade upgrade failed', [
-                'output' => $output,
-                'retval' => $retval,
+                'stdout' => $stdout,
+                'stderr' => $stderr,
+                'exit_code' => $exit_code,
             ]);
-            throw new Exception('wp cavalcad upgrade error');
+            throw new Exception('wp cavalcade upgrade error');
         }
     }
 
@@ -214,6 +230,7 @@ class Runner
                     }
 
                     $this->log->error('abandoned worker found', Job::log_values($job));
+                    $this->log->error_app('abandoned worker found', Job::log_values($job));
                     $job->mark_done();
                 }
             },
@@ -372,7 +389,7 @@ class Runner
                     throw new Exception('failed to create tmp file');
                 }
                 $command = $this->job_command($job, $error_log_file);
-                $this->log->debug('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
+                $this->log->debug_app('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
 
                 $spec = [
                     1 => ['pipe', 'w'], // stdout
@@ -418,7 +435,7 @@ class Runner
     {
         $siteurl = $job->get_site_url();
 
-        $command = "php -d error_log=$error_log_file $this->wpcli_path cavalcade run $job->id";
+        $command = "php -d error_log=$error_log_file $this->wpcli_path --no-color cavalcade run $job->id";
 
         if ($siteurl) {
             $command .= ' --url=' . escapeshellarg($siteurl);
@@ -470,11 +487,11 @@ class Runner
                 $this->hooks->run('Runner.check_workers.job_finishing', $this->db, $worker, $worker->job);
                 if ($worker->shutdown()) {
                     $worker->job->mark_done();
-                    $this->log->info('job completed', Worker::log_values($worker));
+                    $this->log->info_app('job completed', Worker::log_values($worker));
                     $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job);
                 } else {
                     $worker->job->mark_done();
-                    $this->log->error(
+                    $this->log->error_app(
                         'job failed: failed to shutdown worker',
                         Worker::log_values($worker),
                     );

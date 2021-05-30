@@ -5,6 +5,9 @@ namespace HM\Cavalcade\Runner;
 use Exception;
 use DateTime;
 
+const LOG_TYPE_INFRA = 'infra';
+const LOG_TYPE_APP = 'app';
+
 class Logger
 {
     protected $log_path;
@@ -52,30 +55,55 @@ class Logger
 
     public function debug($message, $values = [])
     {
-        $this->do_logging('DEBUG', $message, $values);
+        $this->do_logging('DEBUG', LOG_TYPE_INFRA, $message, $values);
+    }
+
+    public function debug_app($message, $values = [])
+    {
+        $this->do_logging('DEBUG', LOG_TYPE_APP, $message, $values);
     }
 
     public function info($message, $values = [])
     {
-        $this->do_logging('INFO', $message, $values);
+        $this->do_logging('INFO', LOG_TYPE_INFRA, $message, $values);
+    }
+
+    public function info_app($message, $values = [])
+    {
+        $this->do_logging('INFO', LOG_TYPE_APP, $message, $values);
     }
 
     public function warn($message, $values = [])
     {
-        $this->do_logging('WARN', $message, $values);
+        $this->do_logging('WARN', LOG_TYPE_INFRA, $message, $values);
+    }
+
+    public function warn_app($message, $values = [])
+    {
+        $this->do_logging('WARN', LOG_TYPE_APP, $message, $values);
     }
 
     public function error($message, $values = [])
     {
-        $this->do_logging('ERROR', $message, $values);
+        $this->do_logging('ERROR', LOG_TYPE_INFRA, $message, $values);
+    }
+
+    public function error_app($message, $values = [])
+    {
+        $this->do_logging('ERROR', LOG_TYPE_APP, $message, $values);
     }
 
     public function fatal($message, $values = [])
     {
-        $this->do_logging('FATAL', $message, $values);
+        $this->do_logging('FATAL', LOG_TYPE_INFRA, $message, $values);
     }
 
-    protected function do_logging($level, $message, $values = [])
+    public function fatal_app($message, $values = [])
+    {
+        $this->do_logging('FATAL', LOG_TYPE_APP, $message, $values);
+    }
+
+    protected function do_logging($level, $type, $message, $values = [])
     {
         pcntl_signal_dispatch();
         $dt = new DateTime();
@@ -83,6 +111,7 @@ class Logger
         $log = array_merge([
             'timestamp' => $now,
             'level' => $level,
+            'type' => $type,
             'message' => $message,
         ], $values);
 
