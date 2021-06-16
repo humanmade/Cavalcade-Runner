@@ -71,7 +71,7 @@ jobs:
     - name: Print new build number
       run: echo "Build number is $BUILD_NUMBER"
     - name: Save the build number
-      run: echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+      run: echo "$BUILD_NUMBER" > work/BUILD_NUMBER
     - name: Print new build number
       run: echo "build-$BUILD_NUMBER" > ./VERSION
     - run: build/build-image
@@ -80,6 +80,10 @@ jobs:
       with:
         name: artifact
         path: work/cavalcade-runner.zip
+    - uses: actions/upload-artifact@v2
+      with:
+        name: build-number
+        path: work/BUILD_NUMBER
 
   release:
     needs:
@@ -91,8 +95,13 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: artifact
+    - uses: actions/download-artifact@v2
+      with:
+        name: build-number
     - name: Show artifacts
       run: ls -laR ./
+    - name: set BUILD_NUMBER
+      run: echo "BUILD_NUMBER=$(< ./BUILD_NUMBER)" >> $GITHUB_ENV
     - id: create_release
       uses: actions/create-release@v1
       env:
