@@ -12,7 +12,21 @@ mkfifo "$restart_sig_fifo" "$stopped_sig_fifo" "$cleaned_sig_fifo"
 trap "rm -f $restart_sig_fifo $stopped_sig_fifo $cleaned_sig_fifo" EXIT
 build/cavalcade-runner/wait-for-sql 'DESCRIBE wptests_cavalcade_jobs;'
 pid=0
-while [ "$(cat "$restart_sig_fifo")" != exit ]; do
+
+for (( ; ; )); do
+  # Wait for signal to be sent
+  sig="$(cat "$restart_sig_fifo")"
+
+  case "$sig" in
+    'exit')
+      break
+      ;;
+    'sigterm')
+      kill "$pid" &
+      continue
+      ;;
+  esac
+
   if [ "$pid" -ne 0 ]; then
     kill "$pid" || true
   fi

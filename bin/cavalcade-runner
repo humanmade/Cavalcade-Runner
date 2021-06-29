@@ -35,7 +35,7 @@ $get_current_ips = function () {
     $get = function ($url) use ($ctx) {
         $res = file_get_contents($url, false, $ctx);
         if ($res === false) {
-            throw new Exception("failed to get URL: " . $url);
+            throw new MetadataError("failed to get URL: " . $url);
         }
         return $res;
     };
@@ -82,6 +82,13 @@ try {
     $runner->run();
 } catch (SignalInterrupt $e) {
     $log->info('shutting down', [
+        'type' => 'signal interrupt',
+        'reason' => $e->getMessage(),
+        'signal' => $e->getCode(),
+    ]);
+} catch (MetadataError $e) {
+    $log->info('shutting down', [
+        'type' => 'metadata error',
         'reason' => $e->getMessage(),
         'signal' => $e->getCode(),
     ]);
@@ -101,7 +108,7 @@ function has_eip($log, $eip)
     try {
         $ips = $get_current_ips();
     } catch (Exception $e) {
-        $log->error('failed to get public IP: ' . $e->getMessage());
+        $log->info('failed to get public IP: ' . $e->getMessage());
         return false;
     }
 

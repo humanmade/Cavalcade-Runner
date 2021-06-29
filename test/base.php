@@ -24,16 +24,18 @@ const STOPPED_SIG_FIFO = '/workspace/work/stopped.fifo';
 const CLEANED_SIG_FIFO = '/workspace/work/cleaned.fifo';
 const DOT_MAINTENANCE = '/www-work/.maintenance';
 const PUBLIC_IP = '/workspace/work/public-ip';
+const GET_CURRENT_IPS_ERROR = '/workspace/work/get-current-ips-error';
 const EPHEMERAL_IP = '192.0.2.1';
 const EIP = '192.0.2.255';
 const JOB = 'test_job';
 const JOB2 = 'test_job2';
 const JOB_CHATTY = 'test_job_chatty';
+const JOB_FAILED = 'test_job_failed';
+const JOB_LONG = 'test_job_long';
 const JOB_ACQUIRING_LOCK_ERROR = 'test_job_acquiring_lock_error';
 const JOB_CANCELING_LOCK_ERROR = 'test_job_canceling_lock_error';
 const JOB_FINISHING_ERROR = 'test_job_finishing_error';
 const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
-const FAILED_JOB = 'test_failed_job';
 const MAX_LOG_SIZE = 2000;
 
 abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase

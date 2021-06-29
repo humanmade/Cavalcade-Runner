@@ -248,80 +248,96 @@ class Runner
 
     public function run()
     {
-        pcntl_signal(SIGTERM, [$this, 'terminate']);
-        pcntl_signal(SIGINT, [$this, 'terminate']);
-        pcntl_signal(SIGQUIT, [$this, 'terminate']);
+        pcntl_signal(SIGTERM, [$this, 'terminate_by_signal']);
+        pcntl_signal(SIGINT, [$this, 'terminate_by_signal']);
+        pcntl_signal(SIGQUIT, [$this, 'terminate_by_signal']);
 
         $this->hooks->run('Runner.run.before');
 
         $prev_ip_check = $prev_cleanup = time();
-        while (true) {
-            pcntl_signal_dispatch();
-            $this->hooks->run('Runner.run.loop_start', $this);
+        try {
+            while (true) {
+                pcntl_signal_dispatch();
+                $this->hooks->run('Runner.run.loop_start', $this);
 
-            $now = time();
+                $now = time();
 
-            if ($this->ip_check_interval <= $now - $prev_ip_check) {
-                $prev_ip_check = $now;
-                if (!in_array($this->eip, ($this->get_current_ips)())) {
-                    $this->log->info(
-                        'EIP stolen: exiting like receiving SIGTERM',
-                        ['eip' => $this->eip]
-                    );
+                if ($this->ip_check_interval <= $now - $prev_ip_check) {
+                    $prev_ip_check = $now;
+                    if (!in_array($this->eip, ($this->get_current_ips)())) {
+                        $this->log->info('eip lost during excecution, exiting...');
+                        $this->terminate('eip');
+                        break;
+                    }
+                }
+
+                if ($this->is_maintenance_mode()) {
+                    $this->log->info('maintenance mode activated during excecution, exiting...');
+                    $this->terminate('maintenance');
                     break;
                 }
+
+                if ($this->cleanup_interval <= $now - $prev_cleanup) {
+                    $prev_cleanup = $now;
+                    $this->cleanup();
+                }
+
+                $this->check_workers();
+
+                if (count($this->workers) === $this->max_workers) {
+                    $this->log->debug('out of workers');
+                    sleep(LOOP_INTERVAL);
+                    continue;
+                }
+
+                $job = $this->get_next_job();
+                if (empty($job)) {
+                    sleep(LOOP_INTERVAL);
+                    continue;
+                }
+
+                $this->run_job($job);
             }
-
-            if ($this->is_maintenance_mode()) {
-                $this->log->info('maintenance mode activated: exiting like receiving SIGTERM');
-                break;
-            }
-
-            if ($this->cleanup_interval <= $now - $prev_cleanup) {
-                $prev_cleanup = $now;
-                $this->cleanup();
-            }
-
-            $this->check_workers();
-
-            if (count($this->workers) === $this->max_workers) {
-                $this->log->debug('out of workers');
-                sleep(LOOP_INTERVAL);
-                continue;
-            }
-
-            $job = $this->get_next_job();
-            if (empty($job)) {
-                sleep(LOOP_INTERVAL);
-                continue;
-            }
-
-            $this->run_job($job);
+        } catch (SignalInterrupt $e) {
+            throw $e;
+        } catch (Exception $e) {
+            $this->terminate_by_exception($e);
         }
-
-        $this->terminate(SIGTERM);
     }
 
-    public function terminate($signal)
+    protected function terminate_by_signal($signal)
     {
-        $this->hooks->run('Runner.terminate.will_terminate', $signal);
-
-        printf(
-            'Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL,
-            $signal,
-            count($this->workers)
+        $this->log->info(
+            sprintf('cavalcade received terminate signal during excecution (%s), exiting...', $signal)
         );
+        $this->terminate($signal);
+
+        throw new SignalInterrupt('Terminated by signal', $signal);
+    }
+
+    protected function terminate_by_exception($e)
+    {
+        $this->log->info(sprintf('exception occurred during execution (%s), exiting...', $e->getMessage()));
+        $this->terminate(get_class($e));
+
+        throw $e;
+    }
+
+    protected function terminate($type)
+    {
+        $this->hooks->run('Runner.terminate.will_terminate', $type);
+
+        $this->log->debug(sprintf('shutting down %d worker(s)...', count($this->workers)));
+
         // Wait and clean up
         while (!empty($this->workers)) {
             $this->check_workers();
             usleep(100000);
         }
 
-        $this->hooks->run('Runner.terminate.terminated', $signal);
+        $this->hooks->run('Runner.terminate.terminated', $type);
 
         unset($this->db);
-
-        throw new SignalInterrupt('Terminated by signal', $signal);
     }
 
     public function get_wp_path()
