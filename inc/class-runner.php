@@ -146,8 +146,198 @@ class Runner
         $this->connect_to_db();
 
         $this->upgrade_db();
+        $this->validate_schema();
 
         $this->cleanup_abandoned();
+    }
+
+    public function validate_schema()
+    {
+        $validate = function ($pred, $message) {
+            if (!$pred) {
+                throw new Exception("schema validation failed: $message");
+            }
+        };
+
+        $schema = [
+            'id' => [
+                'Type' => 'bigint(20) unsigned',
+                'Null' => 'NO',
+                'Key' => 'PRI',
+                'Default' => NULL,
+                'Extra' => 'auto_increment',
+            ],
+            'site' => [
+                'Type' => 'bigint(20) unsigned',
+                'Null' => 'NO',
+                'Key' => 'MUL',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'hook' => [
+                'Type' => 'varchar(255)',
+                'Null' => 'NO',
+                'Key' => 'MUL',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'hook_instance' => [
+                'Type' => 'varchar(255)',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => '',
+                'Extra' => '',
+            ],
+            'args' => [
+                'Type' => 'longtext',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'args_digest' => [
+                'Type' => 'char(64)',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'nextrun' => [
+                'Type' => 'datetime',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'interval' => [
+                'Type' => 'int(10) unsigned',
+                'Null' => 'YES',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'status' => [
+                'Type' => 'enum(\'waiting\',\'running\',\'done\')',
+                'Null' => 'NO',
+                'Key' => 'MUL',
+                'Default' => 'waiting',
+                'Extra' => '',
+            ],
+            'schedule' => [
+                'Type' => 'varchar(255)',
+                'Null' => 'YES',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'registered_at' => [
+                'Type' => 'datetime',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => 'CURRENT_TIMESTAMP',
+                'Extra' => '',
+            ],
+            'revised_at' => [
+                'Type' => 'datetime',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => 'CURRENT_TIMESTAMP',
+                'Extra' => '',
+            ],
+            'started_at' => [
+                'Type' => 'datetime',
+                'Null' => 'YES',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'finished_at' => [
+                'Type' => 'datetime',
+                'Null' => 'YES',
+                'Key' => '',
+                'Default' => NULL,
+                'Extra' => '',
+            ],
+            'deleted_at' => [
+                'Type' => 'datetime',
+                'Null' => 'NO',
+                'Key' => '',
+                'Default' => '9999-12-31 23:59:59',
+                'Extra' => '',
+            ],
+        ];
+
+        $this->execute_query(
+            "DESCRIBE `$this->table`",
+            function ($stmt) use ($validate, $schema) {
+                $stmt->execute();
+                $fields = $stmt->fetchAll(PDO::FETCH_UNIQUE);
+                foreach ($fields as &$row) {
+                    foreach (array_keys($row) as $key) {
+                        if (is_int($key)) {
+                            unset($row[$key]);
+                        }
+                    }
+                }
+                $this->log->debug(var_export($schema, true));
+                $this->log->debug(var_export($fields, true));
+                $validate($fields == $schema, 'incorrect column description');
+            },
+        );
+
+        $this->execute_query(
+            "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'uniqueness'",
+            function ($stmt) use ($validate) {
+                $stmt->execute();
+                $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
+                $validate($fields == [
+                    'site',
+                    'hook',
+                    'hook_instance',
+                    'args_digest',
+                    'deleted_at',
+                ], 'incorrect "uniqueness" index');
+            },
+        );
+
+        $this->execute_query(
+            "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'status'",
+            function ($stmt) use ($validate) {
+                $stmt->execute();
+                $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
+                $validate($fields == ['status', 'deleted_at'], 'incorrect "status" index');
+            },
+        );
+
+        $this->execute_query(
+            "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'site'",
+            function ($stmt) use ($validate) {
+                $stmt->execute();
+                $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
+                $validate($fields == ['site', 'deleted_at'], 'incorrect "site" index');
+            },
+        );
+
+        $this->execute_query(
+            "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'hook'",
+            function ($stmt) use ($validate) {
+                $stmt->execute();
+                $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
+                $validate($fields == ['hook', 'deleted_at'], 'incorrect "hook" index');
+            },
+        );
+
+        $this->execute_query(
+            "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'status-finished_at'",
+            function ($stmt) use ($validate) {
+                $stmt->execute();
+                $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
+                $validate(
+                    $fields == ['status', 'finished_at'],
+                    'incorrect "status-finished_at" index'
+                );
+            },
+        );
     }
 
     protected function upgrade_db()
