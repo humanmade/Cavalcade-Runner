@@ -51,6 +51,10 @@ EOS;
 
 const CAVALCADE_GET_IP = <<<'EOS'
 $get_current_ips = function () {
+    if (file_exists('/workspace/work/get-current-ips-error')) {
+        throw new MetadataError('failed to get URL: http://169.254.169.254/latest/meta-data/');
+    }
+
     return [
         '192.0.0.8', // dummy IP address
         file_get_contents('/workspace/work/public-ip'),

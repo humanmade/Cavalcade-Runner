@@ -180,7 +180,7 @@ class Test_Job extends CavalcadeRunner_TestCase
     function test_failed_event()
     {
         $pre_time = time();
-        wp_schedule_single_event($pre_time, FAILED_JOB, [__FUNCTION__]);
+        wp_schedule_single_event($pre_time, JOB_FAILED, [__FUNCTION__]);
 
         self::wait_wpcli_blocking();
 
@@ -192,7 +192,7 @@ class Test_Job extends CavalcadeRunner_TestCase
         $this->assertEquals(__FUNCTION__, file_get_contents(ACTUAL_FUNCTION));
 
         $post_time = time();
-        $job = $this->get_job(FAILED_JOB);
+        $job = $this->get_job(JOB_FAILED);
         $this->assertEquals(STATUS_DONE, $job->status);
         $this->assertBetweenWeak($pre_time, $in_time, self::as_epoch($job->started_at));
         $this->assertBetweenWeak($in_time, $post_time, self::as_epoch($job->finished_at));
@@ -201,12 +201,12 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(3);
 
-        $job = $this->get_job(FAILED_JOB);
+        $job = $this->get_job(JOB_FAILED);
         $this->assertEquals(STATUS_DONE, $job->status);
 
         sleep(6);
 
-        $this->assertNull($this->get_job(FAILED_JOB));
+        $this->assertNull($this->get_job(JOB_FAILED));
     }
 
     function test_chatty_event()
@@ -234,11 +234,9 @@ class Test_Job extends CavalcadeRunner_TestCase
 
     function test_maintenance_mode()
     {
-        wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
+        wp_schedule_single_event(time(), JOB_LONG, [__FUNCTION__]);
 
         sleep(2);
-
-        $this->assertFalse(self::log_exists('"shutting down"'));
 
         self::wait_wpcli_blocking();
 
@@ -247,10 +245,30 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::go_wpcli_blocking();
 
+        sleep(10 + 2);
+
+        $this->assertTrue(self::log_exists('maintenance mode activated'));
+        $job = $this->get_job(JOB_LONG);
+        $this->assertEquals(STATUS_DONE, $job->status);
+    }
+
+    function test_sigterm()
+    {
+        wp_schedule_single_event(time(), JOB_LONG, [__FUNCTION__]);
+
         sleep(2);
 
+        self::wait_wpcli_blocking();
+
+        file_put_contents(RESTART_SIG_FIFO, "sigterm\n");
+
+        self::go_wpcli_blocking();
+
+        sleep(10 + 2);
+
         $this->assertTrue(self::log_exists('"shutting down"'));
-        $job = $this->get_job(JOB);
+        $this->assertTrue(self::log_exists('"signal interrupt"'));
+        $job = $this->get_job(JOB_LONG);
         $this->assertEquals(STATUS_DONE, $job->status);
     }
 }

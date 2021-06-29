@@ -32,4 +32,3 @@ RUN /build/common/install-wpcli
 RUN rm -fr /build
 
 ENTRYPOINT ["build/cavalcade-runner/entrypoint"]
-CMD ["service"]
