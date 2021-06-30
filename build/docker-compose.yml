@@ -37,8 +37,9 @@ services:
     depends_on:
     - db
   db:
-    image: mysql:5.7
+    image: mariadb:10.5
     command:
+    - --datadir=/var/tmp
     - --log-output=file
     - --general-log=on
     - --general-log-file=/var/log/mysql/general.log

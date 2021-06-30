@@ -234,14 +234,14 @@ class Runner
                 'Type' => 'datetime',
                 'Null' => 'NO',
                 'Key' => '',
-                'Default' => 'CURRENT_TIMESTAMP',
+                'Default' => 'current_timestamp()',
                 'Extra' => '',
             ],
             'revised_at' => [
                 'Type' => 'datetime',
                 'Null' => 'NO',
                 'Key' => '',
-                'Default' => 'CURRENT_TIMESTAMP',
+                'Default' => 'current_timestamp()',
                 'Extra' => '',
             ],
             'started_at' => [
