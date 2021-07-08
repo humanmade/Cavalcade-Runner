@@ -6,6 +6,7 @@ use DateTime;
 use Exception;
 use WP_UnitTestCase;
 
+const SCHEMA_VERSION = 12;
 const RUNNER_LOG = '/workspace/work/cavalcade-runner.log';
 const ACTUAL_FUNCTION = '/workspace/work/test_function_name.txt';
 const RECUR_HOURLY = 'hourly';
@@ -19,9 +20,9 @@ const RUNNER_WPTEST_FIFO = '/workspace/work/runner-wptest.fifo';
 const WPTEST_RUNNER_FIFO = '/workspace/work/wptest-runner.fifo';
 const RUNNER_STARTED = '/workspace/work/runner-started';
 const LOCKFILE = '/workspace/work/runner.lock';
-const RESTART_SIG_FIFO = '/workspace/work/restart.fifo';
-const STOPPED_SIG_FIFO = '/workspace/work/stopped.fifo';
-const CLEANED_SIG_FIFO = '/workspace/work/cleaned.fifo';
+const STATE_FILE = '/workspace/work/runner-state.json';
+const RUNNER_CTRL_FIFO = '/workspace/work/runner_ctrl.fifo';
+const RUNNER_CTRL_DONE_FIFO = '/workspace/work/runner_ctrl_done.fifo';
 const DOT_MAINTENANCE = '/www-work/.maintenance';
 const PUBLIC_IP = '/workspace/work/public-ip';
 const GET_CURRENT_IPS_ERROR = '/workspace/work/get-current-ips-error';
@@ -60,14 +61,43 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         return strpos($content, $text) !== false;
     }
 
+    protected function open_gate()
+    {
+        # Let Cavalcade-Runner start processing cron jobs by closing lock and attach EIP.
+        fclose($this->lockfile);
+        file_put_contents(PUBLIC_IP, EIP);
+
+        self::wait_runner_blocking();
+    }
+
+    protected function start_runner_process()
+    {
+        # Start Cavalcade-Runner process.
+        file_put_contents(RUNNER_CTRL_FIFO, "start\n");
+        file_get_contents(RUNNER_CTRL_DONE_FIFO);
+    }
+
     function setUp()
     {
         global $wpdb;
 
-        $this->table = $wpdb->base_prefix . 'cavalcade_jobs';
-        $wpdb->query("DROP TABLE IF EXISTS `$this->table`");
+        # Exit Cavalcade-Runner process and confirm it.
+        file_put_contents(RUNNER_CTRL_FIFO, "exit\n");
+        file_get_contents(RUNNER_CTRL_DONE_FIFO);
 
-        $ms_tests = (getenv('WP_MULTISITE') === '1') ? 'run_ms_tests' : 'no_ms_tests';
+        # This will delete files opened by the runner process.
+        $this->close_communication_channels();
+
+        $this->table = $wpdb->base_prefix . 'cavalcade_jobs';
+
+        # Recreate database.
+        # Database is required to run WordPress with Cavalcade plugin.
+        $wpdb->query("DROP TABLE IF EXISTS `$this->table`");
+        file_put_contents(RUNNER_CTRL_FIFO, "create_table\n");
+        file_get_contents(RUNNER_CTRL_DONE_FIFO);
+
+        # Install WordPress.
+        $ms_tests = getenv('WP_MULTISITE') === '1' ? 'run_ms_tests' : 'no_ms_tests';
         $output = $retval = null;
         exec(
             "php /wp-tests/includes/install.php /wp-tests/wp-tests-config.php $ms_tests",
@@ -79,54 +109,57 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         }
 
         parent::setUp();
-        _set_cron_array(array());
 
+        # Clean up default jobs added by install task.
+        _set_cron_array([]);
         $wpdb->query("TRUNCATE `$this->table`");
 
+        # Create fifo used to communicate to Cavalcade jobs.
         posix_mkfifo(WPTEST_WPCLI_FIFO, 0644);
         posix_mkfifo(WPCLI_WPTEST_FIFO, 0644);
         posix_mkfifo(WPTEST_RUNNER_FIFO, 0644);
         posix_mkfifo(RUNNER_WPTEST_FIFO, 0644);
 
-        file_put_contents(RESTART_SIG_FIFO, "\n");
-        file_get_contents(STOPPED_SIG_FIFO);
-
+        # Remove files created by previous test.
         @unlink(LOCKFILE);
+        @unlink(STATE_FILE);
         @unlink(ACTUAL_FUNCTION);
         @unlink(RUNNER_STARTED);
         @unlink(RUNNER_LOG);
         @unlink(DOT_MAINTENANCE);
 
+        # Create state json.
+        file_put_contents(STATE_FILE, sprintf('{"schema_version":%d}', SCHEMA_VERSION));
+        # Lock used by Cavalcade-Runner is activated by default,
+        # which means Cavalcade-Runner cannot process cron jobs at this time.
         $this->lockfile = fopen(LOCKFILE, 'w+');
         flock($this->lockfile, LOCK_EX);
+        # Ephemeral public IP attached to the mock VM also means
+        # Cavalcade-Runner is unable process cron jobs.
         file_put_contents(PUBLIC_IP, EPHEMERAL_IP);
 
-        $this->beforeRunnerStarts();
-
-        file_put_contents(CLEANED_SIG_FIFO, "\n");
-
-        $this->afterSetUp();
+        $this->start_runner();
     }
 
-    protected function beforeRunnerStarts()
+    protected function start_runner()
     {
+        $this->start_runner_process();
+        $this->open_gate();
     }
 
-    function afterSetUp()
+    private function close_communication_channels()
     {
-        fclose($this->lockfile);
-        file_put_contents(PUBLIC_IP, EIP);
-        self::wait_runner_blocking();
-    }
-
-    function tearDown()
-    {
+        # Close files used for communication.
         @fclose($this->lockfile);
         @unlink(WPTEST_WPCLI_FIFO);
         @unlink(WPCLI_WPTEST_FIFO);
         @unlink(WPTEST_RUNNER_FIFO);
         @unlink(RUNNER_WPTEST_FIFO);
+    }
 
+    function tearDown()
+    {
+        $this->close_communication_channels();
         parent::tearDown();
     }
 

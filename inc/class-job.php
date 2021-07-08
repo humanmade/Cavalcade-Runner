@@ -101,11 +101,11 @@ class Job
         return $this->execute_query(
             "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs` WHERE `blog_id` = :site",
             function ($stmt) {
-                $stmt->bindValue(':site', $this->site);
+                $stmt->bindValue(':site', $this->site, PDO::PARAM_INT);
                 $stmt->execute();
 
-                $data = $stmt->fetch(PDO::FETCH_ASSOC);
-                return $data['domain'] . $data['path'];
+                $data = $stmt->fetch(PDO::FETCH_OBJ);
+                return $data->domain . $data->path;
             },
         );
     }
@@ -127,7 +127,7 @@ class Job
              SET `status` = 'running', `started_at` = :started_at
              WHERE `status` = 'waiting' AND id = :id",
             function ($stmt) {
-                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->bindValue(':started_at', $this->started_at);
                 $stmt->execute();
 
@@ -143,7 +143,7 @@ class Job
              SET `status` = 'waiting', `started_at` = NULL
              WHERE id = :id",
             function ($stmt) {
-                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->execute();
             },
         );
@@ -162,7 +162,7 @@ class Job
                  SET `status` = 'done', `finished_at` = :finished_at
                  WHERE `id` = :id",
                 function ($stmt) {
-                    $stmt->bindValue(':id', $this->id);
+                    $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                     $stmt->bindValue(':finished_at', $this->finished_at);
                     $stmt->execute();
                 },
@@ -183,7 +183,7 @@ class Job
              SET `status` = :status, `nextrun` = :nextrun, `finished_at` = :finished_at
              WHERE `id` = :id",
             function ($stmt) {
-                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->bindValue(':status', $this->status);
                 $stmt->bindValue(':nextrun', $this->nextrun);
                 $stmt->bindValue(':finished_at', $this->finished_at);

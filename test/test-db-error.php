@@ -2,7 +2,7 @@
 
 namespace HM\Cavalcade\Runner\Tests;
 
-class Test_Db_Error extends CavalcadeRunner_TestCase
+class Test_DB_Error extends CavalcadeRunner_TestCase
 {
     private static function go_wpcli_blocking()
     {

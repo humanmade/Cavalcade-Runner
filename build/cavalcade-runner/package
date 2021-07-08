@@ -6,7 +6,7 @@ target=work/cavalcade-runner
 
 rm -fr "$target" "$target.zip"
 mkdir -p "$target"
-cp -R bin fakewp inc vendor bootstrap.php VERSION "$target"
+cp -R bin fakewp inc vendor autoload.php VERSION "$target"
 rm -fr \
   "$target/bin/.gitignore" \
   "$target/bin/cavalcade-runner.php" \

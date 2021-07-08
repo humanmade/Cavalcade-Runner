@@ -24,6 +24,7 @@ class Runner
     public $hooks;
     public $eip;
     public $max_log_size;
+    public $state_path;
 
     protected $db;
     protected $workers = [];
@@ -31,6 +32,7 @@ class Runner
     protected $maintenance_path;
     protected $table_prefix;
     protected $table;
+    protected $state;
     protected $log;
 
     protected static $instance;
@@ -45,7 +47,8 @@ class Runner
         $get_current_ips,
         $ip_check_interval,
         $eip,
-        $max_log_size
+        $max_log_size,
+        $state_path
     ) {
         $this->max_workers = $max_workers;
         $this->wpcli_path = $wpcli_path;
@@ -56,6 +59,7 @@ class Runner
         $this->get_current_ips = $get_current_ips;
         $this->ip_check_interval = $ip_check_interval;
         $this->max_log_size = $max_log_size;
+        $this->state_path = $state_path;
         $this->eip = $eip;
         $this->hooks = new Hooks();
         $this->log = $log;
@@ -76,7 +80,8 @@ class Runner
         $get_current_ips,
         $ip_check_interval,
         $eip,
-        $max_log_size
+        $max_log_size,
+        $state_path
     ) {
         if (empty(static::$instance)) {
             static::$instance = new static(
@@ -90,6 +95,7 @@ class Runner
                 $ip_check_interval,
                 $eip,
                 $max_log_size,
+                $state_path
             );
         }
 
@@ -111,17 +117,107 @@ class Runner
 
             $this->log->error('database error', [
                 'dump' => $dump,
-                'code' => $err[0],
-                'driver_code' => $err[1],
-                'error_message' => $err[2],
+                'err_content' => $err,
             ]);
 
             throw new Exception('database error', 0, $e);
         }
     }
 
+    private function save_current_state()
+    {
+        $json = json_encode($this->state);
+        if ($json === false) {
+            throw new Exception('failed to encode state: ' . var_export($this->state, true));
+        };
+
+        if (file_put_contents($this->state_path, $json) === false) {
+            throw new Exception('failed to write to state file: ' . $this->state_path);
+        }
+
+        $this->log->info('state file updated', ['state' => var_export($this->state, true)]);
+    }
+
+    private function load_state()
+    {
+        if (!file_exists($this->state_path)) {
+            $this->state = new \stdClass();
+        } else {
+            $state = json_decode(file_get_contents($this->state_path));
+            if ($state === null) {
+                throw new Exception('failed to load state from json file: ' . $this->state_path);
+            }
+            $this->state = $state;
+        }
+
+        if (!property_exists($this->state, 'schema_version')) {
+            $this->state->schema_version = null;
+        }
+    }
+
+    public function migrate_schema_version($is_multisite, $site_id)
+    {
+        if ($this->state->schema_version !== null) {
+            $this->log->debug('no need to migrate schema version');
+            return;
+        }
+
+        $this->log->debug('schema version migration started');
+
+        $key = 'cavalcade_db_version';
+
+        if ($is_multisite) {
+            $table = $this->table_prefix . 'sitemeta';
+            $version = $this->execute_query(
+                "SELECT `meta_value` FROM `$table`
+                WHERE `meta_key` = '$key' AND `site_id` = :site_id LIMIT 1",
+                function ($stmt) use ($site_id) {
+                    $stmt->bindValue(':site_id', $site_id, PDO::PARAM_INT);
+                    $stmt->execute();
+                    $v = $stmt->fetchColumn();
+                    return $v === false ? null : $v;
+                }
+            );
+            $delete_sql = "DELETE FROM `$table` WHERE `meta_key` = '$key'";
+        } else {
+            $table = $this->table_prefix . 'options';
+            $version = $this->execute_query(
+                "SELECT `option_value` FROM `$table`
+                WHERE `option_name` = '$key' LIMIT 1",
+                function ($stmt) {
+                    $stmt->execute();
+                    $v = $stmt->fetchColumn();
+                    return $v === false ? null : $v;
+                }
+            );
+            $delete_sql = "DELETE FROM `$table` WHERE `option_name` = '$key'";
+        }
+
+        if ($version === false) {
+            $this->log->fatal('unable to find schema version in db');
+            throw new Exception('failed to migrate schema version');
+        }
+
+        $this->log->debug('retrieved schema version', ['version' => $version]);
+
+        $this->state->schema_version = (int)$version;
+        $this->save_current_state();
+
+        $this->execute_query(
+            $delete_sql,
+            function ($stmt) {
+                $stmt->execute();
+            }
+        );
+
+        $this->log->debug('deleted database entry', ['sql' => $delete_sql]);
+        $this->log->info('schema version migrated from database to state file');
+    }
+
     public function bootstrap()
     {
+        $this->load_state();
+
         $config_path = $this->wp_path . '/wp-config.php';
         if (!file_exists($config_path)) {
             $config_path = realpath($this->wp_path . '/../wp-config.php');
@@ -133,7 +229,7 @@ class Runner
             }
         }
 
-        // Load WP config
+        // Load configuration ONLY
         define('ABSPATH', dirname(__DIR__) . '/fakewp/');
         if (!isset($_SERVER['HTTP_HOST'])) {
             $_SERVER['HTTP_HOST'] = 'cavalcade.example';
@@ -142,12 +238,29 @@ class Runner
         include $config_path;
         $this->table_prefix = isset($table_prefix) ? $table_prefix : 'wp_';
         $this->table = $this->table_prefix . 'cavalcade_jobs';
+        $charset = defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4';
+        $collate = defined('DB_COLLATE') ? DB_COLLATE : 'utf8mb4_unicode_ci';
+        $is_multisite = defined('MULTISITE') && MULTISITE;
+        $site_id = $is_multisite ? (defined('CAVALCADE_SITE_ID') ? CAVALCADE_SITE_ID : (defined('SITE_ID_CURRENT_SITE') ? SITE_ID_CURRENT_SITE : 1)) : null;
 
         $this->connect_to_db();
+        // This will be removed once all migrations have been done.
+        $this->migrate_schema_version($is_multisite, $site_id);
 
-        $this->upgrade_db();
+        $schema = new DBSchema(
+            $this->log,
+            $this->db,
+            $this->table_prefix,
+            $charset,
+            $collate,
+            $this->state->schema_version
+        );
+        $new_version = $schema->create_or_upgrade();
+        if ($new_version !== null) {
+            $this->state->schema_version = $new_version;
+            $this->save_current_state();
+        }
         $this->validate_schema();
-
         $this->cleanup_abandoned();
     }
 
@@ -279,8 +392,12 @@ class Runner
                         }
                     }
                 }
-                $this->log->debug(var_export($schema, true));
-                $this->log->debug(var_export($fields, true));
+                if ($fields != $schema) {
+                    $this->log->debug('incorrect column description', [
+                        'expected' => var_export($schema, true),
+                        'actual' => var_export($fields, true),
+                    ]);
+                }
                 $validate($fields == $schema, 'incorrect column description');
             },
         );
@@ -338,40 +455,6 @@ class Runner
                 );
             },
         );
-    }
-
-    protected function upgrade_db()
-    {
-        $spec = [
-            1 => ['pipe', 'w'], // stdout
-            2 => ['pipe', 'w'], // stderr
-        ];
-        $command = "$this->wpcli_path --no-color --path=$this->wp_path cavalcade upgrade";
-        $process = proc_open($command, $spec, $pipes, $this->wp_path);
-        if (!is_resource($process)) {
-            throw new Exception('unable to proc_open()');
-        }
-
-        $stdout = stream_get_contents($pipes[1]);
-        fclose($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[2]);
-        $exit_code = proc_close($process);
-
-        if ($exit_code === 0) {
-            $this->log->info('wp cavalcade upgrade execution succeeded', [
-                'stdout' => $stdout,
-                'stderr' => $stderr,
-                'exit_code' => $exit_code,
-            ]);
-        } else {
-            $this->log->fatal('wp cavalcade upgrade failed', [
-                'stdout' => $stdout,
-                'stderr' => $stderr,
-                'exit_code' => $exit_code,
-            ]);
-            throw new Exception('wp cavalcade upgrade error');
-        }
     }
 
     public function cleanup()
@@ -582,46 +665,40 @@ class Runner
     protected function run_job($job)
     {
         try {
-            try {
-                $this->hooks->run('Runner.run_job.acquiring_lock', $this->db, $job);
-                $has_lock = $job->acquire_lock();
-                if (!$has_lock) {
-                    return;
-                }
+            $this->hooks->run('Runner.run_job.acquiring_lock', $this->db, $job);
+            $has_lock = $job->acquire_lock();
+            if (!$has_lock) {
+                return;
+            }
 
-                $error_log_file = tempnam('/tmp', 'cavalcade');
-                if ($error_log_file === false) {
-                    $this->log->error('failed to create tmp file');
-                    throw new Exception('failed to create tmp file');
-                }
-                $command = $this->job_command($job, $error_log_file);
-                $this->log->debug_app('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
+            $error_log_file = tempnam('/tmp', 'cavalcade');
+            if ($error_log_file === false) {
+                $this->log->error('failed to create tmp file');
+                throw new Exception('failed to create tmp file');
+            }
+            $command = $this->job_command($job, $error_log_file);
+            $this->log->debug_app('preparing for worker', ['job_id' => $job->id, 'command' => $command]);
 
-                $spec = [
-                    1 => ['pipe', 'w'], // stdout
-                    2 => ['pipe', 'w'], // stderr
-                ];
-                $process = proc_open($command, $spec, $pipes, $this->wp_path);
+            $spec = [
+                1 => ['pipe', 'w'], // stdout
+                2 => ['pipe', 'w'], // stderr
+            ];
+            $process = proc_open($command, $spec, $pipes, $this->wp_path);
 
-                if (!is_resource($process)) {
-                    throw new Exception('unable to proc_open()');
-                }
+            if ($process === false) {
+                throw new Exception('unable to proc_open()');
+            }
 
-                // Disable blocking to allow partial stream reads before EOF.
-                if (!stream_set_blocking($pipes[1], false)) {
-                    throw new Exception('failed to set stdout to non-blocking');
-                }
-                if (!stream_set_blocking($pipes[2], false)) {
-                    throw new Exception('failed to set stderr to non-blocking');
-                }
-            } finally {
-                $worker = new Worker($process, $pipes, $job, $this->log, $error_log_file, $this->max_log_size);
+            // Disable blocking to allow partial stream reads before EOF.
+            if (!stream_set_blocking($pipes[1], false) || !stream_set_blocking($pipes[2], false)) {
+                @fclose($pipes[1]);
+                @fclose($pipes[2]);
+                throw new Exception('failed to set stdout to non-blocking');
             }
         } catch (Exception $e) {
             $this->log->error('exception during starting job', [
                 'ex_message' => $e->getMessage(),
             ]);
-            $worker->shutdown();
             try {
                 $this->hooks->run('Runner.run_job.canceling_lock', $this->db, $job);
                 $job->cancel_lock();
@@ -631,6 +708,7 @@ class Runner
             sleep(10); // throttle
             return;
         }
+        $worker = new Worker($process, $pipes, $job, $this->log, $error_log_file, $this->max_log_size);
         $this->workers[] = $worker;
 
         $this->log->debug('worker started', ['job_id' => $job->id]);

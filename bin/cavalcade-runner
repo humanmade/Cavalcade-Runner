@@ -5,9 +5,9 @@ namespace HM\Cavalcade\Runner;
 
 use Exception;
 
-include dirname(__DIR__) . '/bootstrap.php';
+include dirname(__DIR__) . '/autoload.php';
 
-$options = getopt('l:p:b:w:c:i:d:e:k:h:z:');
+$options = getopt('l:p:b:w:c:i:d:e:k:h:z:s:');
 $log_path = $options['l'] ?? '/var/log/wp/cron.log';
 $pid_file = $options['p'] ?? '/run/cavalcade-runner/cavalcade-runner.pid';
 $wp_base_path = $options['b'] ?? '/var/web/wp';
@@ -18,6 +18,7 @@ $ip_check_interval = intval($options['h'] ?? 5);
 $cleanup_delay = intval($options['d'] ?? 24 * 60 * 60);
 $eip = $options['e'];
 $lockfile_path = $options['k'] ?? '/var/etc/custom/cavalcade/runner.lock';
+$state_path = $options['s'] ?? '/var/etc/custom/cavalcade/state.json';
 $max_log_size = intval($options['z'] ?? 100 * 1024);
 
 date_default_timezone_set('UTC');
@@ -27,6 +28,22 @@ if ($pid === null) {
     $log->fatal('cannot get PID');
     exit(1);
 }
+
+set_error_handler(function ($errno, $errstr, $errfile, $errline) use ($log) {
+    // error was suppressed with the @-operator
+    if (0 === error_reporting()) {
+        return false;
+    }
+
+    $log->error('PHP error', [
+        'no' => $errno,
+        'str' => $errstr,
+        'file' => $errfile,
+        'line' => $errline,
+    ]);
+
+    throw new Exception("PHP error ocurred: $errstr");
+});
 
 const NETWORK_MACS_URL = 'http://169.254.169.254/latest/meta-data/network/interfaces/macs/';
 
@@ -40,7 +57,9 @@ $get_current_ips = function () {
         return $res;
     };
 
-    $ips = array_merge(...array_map(
+    # Cast as array explicitly to avoid Intelephense error.
+    # https://github.com/bmewburn/vscode-intelephense/issues/1643
+    $ips = (array)array_merge(...array_map(
         function ($mac) use ($get) {
             return array_filter(array_map(
                 'trim',
@@ -71,6 +90,7 @@ try {
         $ip_check_interval,
         $eip,
         $max_log_size,
+        $state_path
     );
     while ($runner->is_maintenance_mode()) {
         pcntl_signal_dispatch();

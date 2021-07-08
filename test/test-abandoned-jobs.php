@@ -4,12 +4,23 @@ namespace HM\Cavalcade\Runner\Tests;
 
 class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
 {
-    protected function beforeRunnerStarts()
+    public function setUp()
     {
+        parent::setUp();
+
         wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
         wp_schedule_event(time(), RECUR_HOURLY, JOB2, [__FUNCTION__]);
         $this->set_running(JOB);
         $this->set_running(JOB2);
+
+        # Start runner after adding jobs.
+        $this->start_runner_process();
+        $this->open_gate();
+    }
+
+    protected function start_runner()
+    {
+        # Don't start runner at this time.
     }
 
     private function get_job($job)
