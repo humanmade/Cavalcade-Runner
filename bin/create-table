@@ -3,7 +3,6 @@
 
 namespace HM\Cavalcade\Runner;
 
-use PDO;
 use Exception;
 
 include dirname(__DIR__) . '/autoload.php';
@@ -33,11 +32,8 @@ try {
   define('ABSPATH', dirname(__DIR__) . '/fakewp/');
   $_SERVER['HTTP_HOST'] = 'cavalcade.example';
   include '/www/wp-config.php';
-  $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, DB_CHARSET);
-  $db = new PDO($dsn, DB_USER, DB_PASSWORD);
-  $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-  $db->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-  $db->exec('SET time_zone = "+00:00"');
+  $db = new DB($log);
+  $db->connect(DB_CHARSET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
   $schema = new DBSchema($log, $db, $table_prefix, DB_CHARSET, DB_COLLATE, null);
   $schema->create_table();
   $log->debug('create-table done');

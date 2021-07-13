@@ -29,30 +29,6 @@ class DBSchema
         $this->schema_version = $schema_version;
     }
 
-    protected function execute_query($query, $func)
-    {
-        try {
-            $stmt = $this->db->prepare($query);
-            return $func($stmt);
-        } catch (PDOException $e) {
-            $err = $e->errorInfo;
-
-            ob_start();
-            $stmt->debugDumpParams();
-            $dump = ob_get_contents();
-            ob_end_clean();
-
-            $this->log->error('database error', [
-                'dump' => $dump,
-                'code' => $err[0],
-                'driver_code' => $err[1],
-                'error_message' => $err[2],
-            ]);
-
-            throw new Exception('database error', 0, $e);
-        }
-    }
-
     public function create_or_upgrade()
     {
         if ($this->schema_version === null) {
@@ -111,16 +87,12 @@ class DBSchema
 
     private function lock_table()
     {
-        $this->execute_query("LOCK TABLES `$this->table` WRITE", function ($stmt) {
-            $stmt->execute();
-        });
+        $this->db->exec_query("LOCK TABLES `$this->table` WRITE");
     }
 
     private function unlock_table()
     {
-        $this->execute_query('UNLOCK TABLES', function ($stmt) {
-            $stmt->execute();
-        });
+        $this->db->exec_query('UNLOCK TABLES');
     }
 
     public function create_table()
@@ -153,10 +125,7 @@ class DBSchema
             KEY `hook` (`hook`, `deleted_at`)
         ) ENGINE=InnoDB DEFAULT CHARACTER SET $this->charset COLLATE $this->collate";
 
-        $this->execute_query($query, function ($stmt) {
-            $stmt->execute();
-            $this->log->debug('table creation executed');
-        });
+        $this->db->execute_query($query);
 
         $this->log->info('db table created', ['table' => $this->table]);
 
@@ -172,11 +141,8 @@ class DBSchema
      */
     private function upgrade_database_to_3()
     {
-        $this->execute_query(
-            "ALTER TABLE `$this->table` ADD INDEX `site` (`site`), ADD INDEX `hook` (`hook`)",
-            function ($stmt) {
-                $stmt->execute();
-            }
+        $this->db->execute_query(
+            "ALTER TABLE `$this->table` ADD INDEX `site` (`site`), ADD INDEX `hook` (`hook`)"
         );
 
         $this->log->debug('db upgraded to schema version 3');
@@ -189,12 +155,7 @@ class DBSchema
      */
     private function upgrade_database_to_4()
     {
-        $this->execute_query(
-            "ALTER TABLE `$this->table` DROP INDEX `nextrun`",
-            function ($stmt) {
-                $stmt->execute();
-            }
-        );
+        $this->db->execute_query("ALTER TABLE `$this->table` DROP INDEX `nextrun`");
 
         $this->log->debug('db upgraded to schema version 4');
     }
@@ -206,7 +167,7 @@ class DBSchema
      */
     private function upgrade_database_to_5()
     {
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
             DROP INDEX `status`,
             DROP INDEX `site`,
@@ -214,10 +175,7 @@ class DBSchema
             ADD `deleted_at` datetime DEFAULT NULL,
             ADD INDEX `status` (`status`, `deleted_at`),
             ADD INDEX `site` (`site`, `deleted_at`),
-            ADD INDEX `hook` (`hook`, `deleted_at`)",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            ADD INDEX `hook` (`hook`, `deleted_at`)"
         );
 
         $this->log->debug('db upgraded to schema version 5');
@@ -230,13 +188,10 @@ class DBSchema
      */
     private function upgrade_database_to_6()
     {
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
             ADD `finished_at` datetime DEFAULT NULL AFTER `schedule`,
-            ADD INDEX `status-finished_at` (`status`, `finished_at`)",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            ADD INDEX `status-finished_at` (`status`, `finished_at`)"
         );
 
         $this->log->debug('db upgraded to schema version 6');
@@ -249,15 +204,12 @@ class DBSchema
      */
     private function upgrade_database_to_7()
     {
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
             DROP `start`,
             ADD `started_at` datetime DEFAULT NULL AFTER `schedule`,
             ADD `revised_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `schedule`,
-            ADD `registered_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `schedule`",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            ADD `registered_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `schedule`"
         );
 
         $this->log->debug('db upgraded to schema version 7');
@@ -270,12 +222,7 @@ class DBSchema
      */
     private function upgrade_database_to_9()
     {
-        $this->execute_query(
-            "DROP TABLE IF EXISTS `$this->table`",
-            function ($stmt) {
-                $stmt->execute();
-            }
-        );
+        $this->db->execute_query("DROP TABLE IF EXISTS `$this->table`");
 
         $this->log->debug('db upgraded to schema version 9');
     }
@@ -287,29 +234,19 @@ class DBSchema
      */
     private function upgrade_database_to_10()
     {
-        $this->execute_query(
+        $this->db->execute_query(
             "DELETE FROM `$this->table`
-            WHERE `finished_at` is NULL AND status IN ('completed', 'failed')",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            WHERE `finished_at` is NULL AND status IN ('completed', 'failed')"
         );
 
-        $this->execute_query(
-            "UPDATE `$this->table`
-            SET `status` = 'done'
-            WHERE `status` IN ('completed', 'failed')",
-            function ($stmt) {
-                $stmt->execute();
-            }
+        $this->db->execute_query(
+            "UPDATE `$this->table` SET `status` = 'done'
+            WHERE `status` IN ('completed', 'failed')"
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
-            MODIFY `status` enum('waiting','running','done') NOT NULL DEFAULT 'waiting'",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            MODIFY `status` enum('waiting','running','done') NOT NULL DEFAULT 'waiting'"
         );
 
         $this->log->debug('db upgraded to schema version 10');
@@ -322,35 +259,23 @@ class DBSchema
      */
     private function upgrade_database_to_11()
     {
-        $this->execute_query(
-            "DELETE FROM `$this->table` WHERE `deleted_at` IS NOT NULL",
-            function ($stmt) {
-                $stmt->execute();
-            }
-        );
+        $this->db->execute_query("DELETE FROM `$this->table` WHERE `deleted_at` IS NOT NULL");
 
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
             ADD `hook_instance` varchar(255) DEFAULT NULL AFTER `hook`,
-            ADD `args_digest` char(64) AFTER `args`",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            ADD `args_digest` char(64) AFTER `args`"
         );
 
-        $this->execute_query(
-            "UPDATE `$this->table` SET `hook_instance` = `nextrun` WHERE `interval` IS NULL",
-            function ($stmt) {
-                $stmt->execute();
-            }
+        $this->db->execute_query(
+            "UPDATE `$this->table` SET `hook_instance` = `nextrun` WHERE `interval` IS NULL"
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SELECT `id`, `args` FROM `$this->table`",
             function ($stmt) {
-                $stmt->execute();
                 while ($row = $stmt->fetch(PDO::FETCH_OBJ)) {
-                    $this->execute_query(
+                    $this->db->prepare_query(
                         "UPDATE `$this->table`
                         SET `args_digest` = :args_digest
                         WHERE `id` = :id",
@@ -364,11 +289,10 @@ class DBSchema
             }
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SELECT MAX(`id`) as `maxid` FROM `$this->table`
             GROUP BY `site`, `hook`, `hook_instance`, `args_digest`",
             function ($stmt) {
-                $stmt->execute();
                 $ids = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
                 if (count($ids) == 0) {
                     return;
@@ -376,7 +300,7 @@ class DBSchema
 
                 $in_query = '(' . implode(',', array_fill(0, count($ids), '?')) . ')';
 
-                $this->execute_query(
+                $this->db->prepare_query(
                     "DELETE FROM `$this->table` WHERE `id` NOT IN $in_query",
                     function ($stmt) use ($ids) {
                         $stmt->execute($ids);
@@ -385,19 +309,11 @@ class DBSchema
             }
         );
 
-        $this->execute_query(
-            "ALTER TABLE `$this->table` MODIFY `args_digest` char(64) NOT NULL",
-            function ($stmt) {
-                $stmt->execute();
-            }
-        );
+        $this->db->execute_query("ALTER TABLE `$this->table` MODIFY `args_digest` char(64) NOT NULL");
 
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
-            ADD UNIQUE KEY `uniqueness` (`site`, `hook`, `hook_instance`, `args_digest`)",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            ADD UNIQUE KEY `uniqueness` (`site`, `hook`, `hook_instance`, `args_digest`)"
         );
 
         $this->log->debug('db upgraded to schema version 11');
@@ -412,37 +328,25 @@ class DBSchema
     {
         $empty_deleted_at = EMPTY_DELETED_AT;
 
-        $this->execute_query(
-            "UPDATE `$this->table` SET `hook_instance` = '' WHERE `hook_instance` IS NULL",
-            function ($stmt) {
-                $stmt->execute();
-            }
+        $this->db->execute_query(
+            "UPDATE `$this->table` SET `hook_instance` = '' WHERE `hook_instance` IS NULL"
         );
 
-        $this->execute_query(
-            "ALTER TABLE `$this->table` MODIFY `hook_instance` varchar(255) NOT NULL DEFAULT ''",
-            function ($stmt) {
-                $stmt->execute();
-            }
+        $this->db->execute_query(
+            "ALTER TABLE `$this->table` MODIFY `hook_instance` varchar(255) NOT NULL DEFAULT ''"
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "UPDATE `$this->table`
             SET `deleted_at` = '$empty_deleted_at'
-            WHERE `deleted_at` IS NULL",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            WHERE `deleted_at` IS NULL"
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "ALTER TABLE `$this->table`
             MODIFY `deleted_at` datetime NOT NULL DEFAULT '$empty_deleted_at',
             DROP INDEX `uniqueness`,
-            ADD UNIQUE KEY `uniqueness` (`site`, `hook`, `hook_instance`, `args_digest`, `deleted_at`)",
-            function ($stmt) {
-                $stmt->execute();
-            }
+            ADD UNIQUE KEY `uniqueness` (`site`, `hook`, `hook_instance`, `args_digest`, `deleted_at`)"
         );
 
         $this->log->debug('db upgraded to schema version 12');

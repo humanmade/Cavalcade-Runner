@@ -102,28 +102,6 @@ class Runner
         return static::$instance;
     }
 
-    public function execute_query($query, $func)
-    {
-        try {
-            $stmt = $this->db->prepare($query);
-            return $func($stmt);
-        } catch (PDOException $e) {
-            $err = $e->errorInfo;
-
-            ob_start();
-            $stmt->debugDumpParams();
-            $dump = ob_get_contents();
-            ob_end_clean();
-
-            $this->log->error('database error', [
-                'dump' => $dump,
-                'err_content' => $err,
-            ]);
-
-            throw new Exception('database error', 0, $e);
-        }
-    }
-
     private function save_current_state()
     {
         $json = json_encode($this->state);
@@ -168,7 +146,7 @@ class Runner
 
         if ($is_multisite) {
             $table = $this->table_prefix . 'sitemeta';
-            $version = $this->execute_query(
+            $version = $this->db->prepare_query(
                 "SELECT `meta_value` FROM `$table`
                 WHERE `meta_key` = '$key' AND `site_id` = :site_id LIMIT 1",
                 function ($stmt) use ($site_id) {
@@ -181,7 +159,7 @@ class Runner
             $delete_sql = "DELETE FROM `$table` WHERE `meta_key` = '$key'";
         } else {
             $table = $this->table_prefix . 'options';
-            $version = $this->execute_query(
+            $version = $this->db->prepare_query(
                 "SELECT `option_value` FROM `$table`
                 WHERE `option_name` = '$key' LIMIT 1",
                 function ($stmt) {
@@ -203,7 +181,7 @@ class Runner
         $this->state->schema_version = (int)$version;
         $this->save_current_state();
 
-        $this->execute_query(
+        $this->db->prepare_query(
             $delete_sql,
             function ($stmt) {
                 $stmt->execute();
@@ -242,8 +220,15 @@ class Runner
         $collate = defined('DB_COLLATE') ? DB_COLLATE : 'utf8mb4_unicode_ci';
         $is_multisite = defined('MULTISITE') && MULTISITE;
         $site_id = $is_multisite ? (defined('CAVALCADE_SITE_ID') ? CAVALCADE_SITE_ID : (defined('SITE_ID_CURRENT_SITE') ? SITE_ID_CURRENT_SITE : 1)) : null;
+        $db_host = DB_HOST;
+        $db_user = DB_USER;
+        $db_password = DB_PASSWORD;
+        $db_name = DB_NAME;
 
-        $this->connect_to_db();
+        $this->db = new DB($this->log);
+        $this->db->connect($charset, $db_host, $db_user, $db_password, $db_name);
+        $this->hooks->run('Runner.connect_to_db.connected', $this->db->get_connection());
+
         // This will be removed once all migrations have been done.
         $this->migrate_schema_version($is_multisite, $site_id);
 
@@ -380,10 +365,9 @@ class Runner
             ],
         ];
 
-        $this->execute_query(
+        $this->db->execute_query(
             "DESCRIBE `$this->table`",
             function ($stmt) use ($validate, $schema) {
-                $stmt->execute();
                 $fields = $stmt->fetchAll(PDO::FETCH_UNIQUE);
                 foreach ($fields as &$row) {
                     foreach (array_keys($row) as $key) {
@@ -402,7 +386,7 @@ class Runner
             },
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'uniqueness'",
             function ($stmt) use ($validate) {
                 $stmt->execute();
@@ -417,7 +401,7 @@ class Runner
             },
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'status'",
             function ($stmt) use ($validate) {
                 $stmt->execute();
@@ -426,7 +410,7 @@ class Runner
             },
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'site'",
             function ($stmt) use ($validate) {
                 $stmt->execute();
@@ -435,7 +419,7 @@ class Runner
             },
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'hook'",
             function ($stmt) use ($validate) {
                 $stmt->execute();
@@ -444,7 +428,7 @@ class Runner
             },
         );
 
-        $this->execute_query(
+        $this->db->execute_query(
             "SHOW INDEX FROM `$this->table` WHERE `Key_name` = 'status-finished_at'",
             function ($stmt) use ($validate) {
                 $stmt->execute();
@@ -464,7 +448,7 @@ class Runner
         $expired_str = $expired->format(MYSQL_DATE_FORMAT);
 
         try {
-            $this->execute_query(
+            $this->db->prepare_query(
                 "DELETE FROM `$this->table`
                  WHERE
                    (`deleted_at` < :expired1 AND `status` IN ('done', 'waiting'))
@@ -488,7 +472,7 @@ class Runner
 
     public function cleanup_abandoned()
     {
-        $this->execute_query(
+        $this->db->prepare_query(
             "SELECT * FROM `$this->table` WHERE `status` = 'running'",
             function ($stmt) {
                 $stmt->execute();
@@ -618,29 +602,10 @@ class Runner
         return $this->wp_path;
     }
 
-    protected function connect_to_db()
-    {
-        $charset = defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4';
-
-        // Check if we're passed a Unix socket (`:/tmp/socket` or `localhost:/tmp/socket`)
-        if (preg_match('#^[^:]*:(/.+)$#', DB_HOST, $matches)) {
-            $dsn = sprintf('mysql:unix_socket=%s;dbname=%s;charset=%s', $matches[1], DB_NAME, $charset);
-        } else {
-            $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, $charset);
-        }
-
-        $this->db = new PDO($dsn, DB_USER, DB_PASSWORD);
-        $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->db->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-        $this->db->exec('SET time_zone = "+00:00"');
-
-        $this->hooks->run('Runner.connect_to_db.connected', $this->db);
-    }
-
     protected function get_next_job()
     {
         try {
-            return $this->execute_query(
+            return $this->db->prepare_query(
                 "SELECT * FROM `$this->table`
                  WHERE `nextrun` < NOW()
                  AND `status` = 'waiting'
@@ -665,7 +630,7 @@ class Runner
     protected function run_job($job)
     {
         try {
-            $this->hooks->run('Runner.run_job.acquiring_lock', $this->db, $job);
+            $this->hooks->run('Runner.run_job.acquiring_lock', $this->db->get_connection(), $job);
             $has_lock = $job->acquire_lock();
             if (!$has_lock) {
                 return;
@@ -700,7 +665,7 @@ class Runner
                 'ex_message' => $e->getMessage(),
             ]);
             try {
-                $this->hooks->run('Runner.run_job.canceling_lock', $this->db, $job);
+                $this->hooks->run('Runner.run_job.canceling_lock', $this->db->get_connection(), $job);
                 $job->cancel_lock();
             } catch (Exception $e) {
                 $this->log->error('failed to cancel lock', ['ex_message' => $e->getMessage()]);
@@ -768,7 +733,7 @@ class Runner
             }
 
             try {
-                $this->hooks->run('Runner.check_workers.job_finishing', $this->db, $worker, $worker->job);
+                $this->hooks->run('Runner.check_workers.job_finishing', $this->db->get_connection(), $worker, $worker->job);
                 if ($worker->shutdown()) {
                     $worker->job->mark_done();
                     $this->log->info_app('job completed', Worker::log_values($worker));
