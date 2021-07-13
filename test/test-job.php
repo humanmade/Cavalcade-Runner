@@ -260,7 +260,8 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         self::wait_wpcli_blocking();
 
-        file_put_contents(RESTART_SIG_FIFO, "sigterm\n");
+        file_put_contents(RUNNER_CTRL_FIFO, "sigterm\n");
+        file_get_contents(RUNNER_CTRL_DONE_FIFO);
 
         self::go_wpcli_blocking();
 

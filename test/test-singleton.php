@@ -4,8 +4,10 @@ namespace HM\Cavalcade\Runner\Tests;
 
 class Test_Singleton extends CavalcadeRunner_TestCase
 {
-    function afterSetUp()
+    protected function start_runner()
     {
+        $this->start_runner_process();
+        # Never open gate at this time.
     }
 
     function test_normal()

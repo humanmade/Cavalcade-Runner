@@ -1,0 +1,43 @@
+#!/usr/bin/env php
+<?php
+
+namespace HM\Cavalcade\Runner;
+
+use Exception;
+
+include dirname(__DIR__) . '/autoload.php';
+
+date_default_timezone_set('UTC');
+$log = Logger::create('work/create-table.log');
+$wpcli_path = '/usr/local/bin/wp';
+$wp_path = '/var/web/wp';
+
+set_error_handler(function ($errno, $errstr, $errfile, $errline) use ($log) {
+  // error was suppressed with the @-operator
+  if (0 === error_reporting()) {
+    return false;
+  }
+
+  $log->error('PHP error', [
+    'no' => $errno,
+    'str' => $errstr,
+    'file' => $errfile,
+    'line' => $errline,
+  ]);
+
+  throw new Exception("PHP error ocurred: $errstr");
+});
+
+try {
+  define('ABSPATH', dirname(__DIR__) . '/fakewp/');
+  $_SERVER['HTTP_HOST'] = 'cavalcade.example';
+  include '/www/wp-config.php';
+  $db = new DB($log);
+  $db->connect(DB_CHARSET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
+  $schema = new DBSchema($log, $db, $table_prefix, DB_CHARSET, DB_COLLATE, null);
+  $schema->create_table();
+  $log->debug('create-table done');
+} catch (Exception $e) {
+  $log->fatal('create-table failed', ['message' => $e->getMessage()]);
+  exit(1);
+}

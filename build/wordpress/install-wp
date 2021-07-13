@@ -48,3 +48,5 @@ sed -i 's/youremptytestdbnamehere/wordpress/' /wp-tests/wp-tests-config.php
 sed -i 's/yourusernamehere/root/' /wp-tests/wp-tests-config.php
 sed -i 's/yourpasswordhere/root/' /wp-tests/wp-tests-config.php
 sed -i 's/localhost/db/' /wp-tests/wp-tests-config.php
+sed -i "s/'utf8'/'utf8mb4'/" /wp-tests/wp-tests-config.php
+sed -i "s/'DB_COLLATE', ''/'DB_COLLATE', 'utf8mb4_unicode_ci'/" /wp-tests/wp-tests-config.php

@@ -1,39 +1,60 @@
 #!/bin/bash
 
-set -eux
+set -eu
 
-restart_sig_fifo=work/restart.fifo
-stopped_sig_fifo=work/stopped.fifo
-cleaned_sig_fifo=work/cleaned.fifo
+ctrl_fifo=work/runner_ctrl.fifo
+ctrl_done_fifo=work/runner_ctrl_done.fifo
 
-command="$1"
+runner_command='bin/cavalcade-runner-test -l work/cavalcade-runner.log -p work/cavalcade-runner.pid -b /www -w 10 -i 2 -d 6 -e 192.0.2.255 -k work/runner.lock -s work/runner-state.json -z 2000'
+
 mkdir -p work
-mkfifo "$restart_sig_fifo" "$stopped_sig_fifo" "$cleaned_sig_fifo"
-trap "rm -f $restart_sig_fifo $stopped_sig_fifo $cleaned_sig_fifo" EXIT
-build/cavalcade-runner/wait-for-sql 'DESCRIBE wptests_cavalcade_jobs;'
+mkfifo "$ctrl_fifo" "$ctrl_done_fifo"
+trap "rm -f $ctrl_fifo $ctrl_done_fifo" EXIT
 pid=0
 
+ctrl_done () {
+  echo '' > "$ctrl_done_fifo"
+}
+
 for (( ; ; )); do
-  # Wait for signal to be sent
-  sig="$(cat "$restart_sig_fifo")"
+  # Wait for control signal to be sent
+  sig="$(< "$ctrl_fifo")"
 
   case "$sig" in
-    'exit')
-      break
+    'start')
+      $runner_command \
+        >> work/cavalcade-runner-test.stdout.log \
+        2>> work/cavalcade-runner-test.stderr.log &
+      pid="$!"
+      ctrl_done
+      continue
       ;;
     'sigterm')
       kill "$pid" &
+      ctrl_done
       continue
       ;;
+    'create_table')
+      bin/create-table \
+        >> work/create-table.stdout.log \
+        2>> work/create-table.stderr.log &
+      ctrl_done
+      continue
+      ;;
+    'exit')
+      if [ "$pid" -ne 0 ]; then
+        kill "$pid" || true
+      fi
+      ctrl_done
+      ;;
+    'destroy_all')
+      break  # break exits for loop.
+      ;;
+    *)
+      >&2 echo "unknown runner ctrl command: $sig"
+      exit 1
+      ;;
   esac
-
-  if [ "$pid" -ne 0 ]; then
-    kill "$pid" || true
-  fi
-  printf '\n' > "$stopped_sig_fifo"
-  cat "$cleaned_sig_fifo" > /dev/null
-  $command &
-  pid="$!"
 done
 
 if [ "$pid" -ne 0 ]; then

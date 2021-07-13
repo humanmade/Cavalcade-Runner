@@ -60,33 +60,9 @@ class Job
         ];
     }
 
-    public function execute_query($query, $func)
-    {
-        try {
-            $stmt = $this->db->prepare($query);
-            return $func($stmt);
-        } catch (PDOException $e) {
-            $err = $e->errorInfo;
-
-            ob_start();
-            $stmt->debugDumpParams();
-            $dump = ob_get_contents();
-            ob_end_clean();
-
-            $this->log->error('database error', [
-                'dump' => $dump,
-                'code' => $err[0],
-                'driver_code' => $err[1],
-                'error_message' => $err[2],
-            ]);
-
-            throw new Exception('database error', 0, $e);
-        }
-    }
-
     public function get_site_url()
     {
-        $row_count = $this->execute_query(
+        $row_count = $this->db->prepare_query(
             "SHOW TABLES LIKE '{$this->table_prefix}blogs'",
             function ($stmt) {
                 $stmt->execute();
@@ -98,14 +74,14 @@ class Job
             return false;
         }
 
-        return $this->execute_query(
+        return $this->db->prepare_query(
             "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs` WHERE `blog_id` = :site",
             function ($stmt) {
-                $stmt->bindValue(':site', $this->site);
+                $stmt->bindValue(':site', $this->site, PDO::PARAM_INT);
                 $stmt->execute();
 
-                $data = $stmt->fetch(PDO::FETCH_ASSOC);
-                return $data['domain'] . $data['path'];
+                $data = $stmt->fetch(PDO::FETCH_OBJ);
+                return $data->domain . $data->path;
             },
         );
     }
@@ -122,12 +98,12 @@ class Job
         $started_at = new DateTime('now', new DateTimeZone('UTC'));
         $this->started_at = $started_at->format(MYSQL_DATE_FORMAT);
 
-        return $this->execute_query(
+        return $this->db->prepare_query(
             "UPDATE `$this->table`
              SET `status` = 'running', `started_at` = :started_at
              WHERE `status` = 'waiting' AND id = :id",
             function ($stmt) {
-                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->bindValue(':started_at', $this->started_at);
                 $stmt->execute();
 
@@ -138,12 +114,12 @@ class Job
 
     public function cancel_lock()
     {
-        $this->execute_query(
+        $this->db->prepare_query(
             "UPDATE `$this->table`
              SET `status` = 'waiting', `started_at` = NULL
              WHERE id = :id",
             function ($stmt) {
-                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->execute();
             },
         );
@@ -157,12 +133,12 @@ class Job
         if ($this->interval) {
             $this->reschedule();
         } else {
-            $this->execute_query(
+            $this->db->prepare_query(
                 "UPDATE `$this->table`
                  SET `status` = 'done', `finished_at` = :finished_at
                  WHERE `id` = :id",
                 function ($stmt) {
-                    $stmt->bindValue(':id', $this->id);
+                    $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                     $stmt->bindValue(':finished_at', $this->finished_at);
                     $stmt->execute();
                 },
@@ -178,12 +154,12 @@ class Job
 
         $this->status = 'waiting';
 
-        $this->execute_query(
+        $this->db->prepare_query(
             "UPDATE `$this->table`
              SET `status` = :status, `nextrun` = :nextrun, `finished_at` = :finished_at
              WHERE `id` = :id",
             function ($stmt) {
-                $stmt->bindValue(':id', $this->id);
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->bindValue(':status', $this->status);
                 $stmt->bindValue(':nextrun', $this->nextrun);
                 $stmt->bindValue(':finished_at', $this->finished_at);

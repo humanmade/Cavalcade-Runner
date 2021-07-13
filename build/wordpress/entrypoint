@@ -2,7 +2,8 @@
 
 set -eu
 
-restart=work/restart.fifo
+runner_ctrl=work/runner_ctrl.fifo
+ctrl_done_fifo=work/runner_ctrl_done.fifo
 
 cd /workspace
 sudo chown hostuser: /www-work
@@ -19,16 +20,24 @@ $wp DB_NAME      wordpress
 $wp DB_USER      root
 $wp DB_PASSWORD  root
 $wp DB_HOST      db
+$wp DB_CHARSET   utf8mb4
+$wp DB_COLLATE   utf8mb4_unicode_ci
 if [ "$WP_MULTISITE" -eq 1 ]; then
-  multisite=true
+  $wp MULTISITE            true  --raw --type=constant
+  $wp SUBDOMAIN_INSTALL    false --raw --type=constant
+  $wp SITE_ID_CURRENT_SITE 1     --raw --type=constant
+  $wp BLOG_ID_CURRENT_SITE 1     --raw --type=constant
 else
-  multisite=false
+  $wp MULTISITE false --raw --type=constant
 fi
-$wp MULTISITE "$multisite" --raw --type=constant
 
 cp test/mu-plugins-test-hook.php /www-work/wp-content/mu-plugins/test-hook.php
 
 wait-for-it -q db:3306
-build/common/wait-for-file "$restart"
-trap "echo exit > $restart" EXIT
+build/common/wait-for-file "$runner_ctrl"
+trap "echo destroy_all > $runner_ctrl" EXIT
+
+echo create_table > "$runner_ctrl"
+cat "$ctrl_done_fifo" > /dev/null
+
 vendor/bin/phpunit --log-junit work/test-result.xml
