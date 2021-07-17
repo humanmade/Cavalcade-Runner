@@ -14,7 +14,7 @@ class DBSchema
 {
     private $log;
     private $db;
-    private $table;
+    private $log_table;
     private $charset;
     private $collate;
     private $schema_version;
@@ -24,6 +24,7 @@ class DBSchema
         $this->log = $log;
         $this->db = $db;
         $this->table = $table_prefix . 'cavalcade_jobs';
+        $this->log_table = $table_prefix . 'cavalcade_logs';
         $this->charset = $charset;
         $this->collate = $collate;
         $this->schema_version = $schema_version;
@@ -222,7 +223,7 @@ class DBSchema
      */
     private function upgrade_database_to_9()
     {
-        $this->db->execute_query("DROP TABLE IF EXISTS `$this->table`");
+        $this->db->execute_query("DROP TABLE IF EXISTS `$this->log_table`");
 
         $this->log->debug('db upgraded to schema version 9');
     }
