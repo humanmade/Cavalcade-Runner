@@ -7,7 +7,6 @@ use DateTime;
 use DateTimeZone;
 use Exception;
 use PDO;
-use PDOException;
 
 const LOOP_INTERVAL = 1;
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
