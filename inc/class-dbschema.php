@@ -4,7 +4,6 @@ namespace HM\Cavalcade\Runner;
 
 use Exception;
 use PDO;
-use PDOException;
 
 const SCHEMA_VERSION = 12;
 
@@ -42,6 +41,9 @@ class DBSchema
         }
 
         try {
+            // Drop log table can't be executed inside lock.
+            $this->db->execute_query("DROP TABLE IF EXISTS `$this->log_table`");
+
             $this->lock_table();
             switch ($this->schema_version) {
                 case 2:
@@ -223,7 +225,7 @@ class DBSchema
      */
     private function upgrade_database_to_9()
     {
-        $this->db->execute_query("DROP TABLE IF EXISTS `$this->log_table`");
+        // $this->db->execute_query("DROP TABLE IF EXISTS `$this->log_table`");
 
         $this->log->debug('db upgraded to schema version 9');
     }
