@@ -50,7 +50,7 @@ const NETWORK_MACS_URL = 'http://169.254.169.254/latest/meta-data/network/interf
 $get_current_ips = function () {
     $ctx = stream_context_create(['http' => ['timeout' => 0.5]]);
     $get = function ($url) use ($ctx) {
-        $res = file_get_contents($url, false, $ctx);
+        $res = @file_get_contents($url, false, $ctx);
         if ($res === false) {
             throw new MetadataError("failed to get URL: " . $url);
         }
