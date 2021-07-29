@@ -35,8 +35,6 @@ class Logger
                 return;
             }
 
-            $this->debug('USR1 signal received. reopening log file...', ['file' => $this->log_path]);
-
             if (!fclose($this->log_handle)) {
                 throw new Exception(sprintf('failed to close log file: %s', $this->log_path));
             }
