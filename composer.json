@@ -16,7 +16,8 @@
   },
   "require-dev": {
     "squizlabs/php_codesniffer": ">=3.5",
-    "phpunit/phpunit": "7.5.20"
+    "phpunit/phpunit": "7.5.20",
+    "yoast/phpunit-polyfills": "^1.0"
   },
   "bin": [
     "bin/cavalcade-runner"
