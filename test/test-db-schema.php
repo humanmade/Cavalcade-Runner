@@ -397,35 +397,4 @@ class Test_DB_Schema extends CavalcadeRunner_TestCase
         $this->assertEquals(1062, $errno);
         $this->assertCount(1, $this->get_all());
     }
-
-    public function test_version_migration()
-    {
-        unlink(STATE_FILE);
-        update_site_option('cavalcade_db_version', 9);
-
-        $this->wait_for_runner_to_work();
-
-        $lines = explode("\n", file_get_contents(RUNNER_LOG));
-        $schema_version_migration_started_message = false;
-        $deleted_db_entry_message = false;
-        foreach ($lines as $line) {
-            if (strstr($line, '"schema version migration started"')) {
-                $schema_version_migration_started_message = true;
-            }
-
-            if (strstr($line, '"deleted database entry"')) {
-                $deleted_db_entry_message = true;
-            }
-        }
-        $this->assertTrue($schema_version_migration_started_message);
-        $this->assertTrue($deleted_db_entry_message);
-
-        self::flush_cache();
-        $state = json_decode(file_get_contents(STATE_FILE));
-        self::flush_cache();
-        $this->assertEquals(SCHEMA_VERSION, $state->schema_version);
-        self::flush_cache();
-        $this->assertFalse(get_site_option('cavalcade_db_version'));
-        self::flush_cache();
-    }
 }

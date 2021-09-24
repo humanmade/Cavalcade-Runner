@@ -132,65 +132,6 @@ class Runner
         }
     }
 
-    public function migrate_schema_version($is_multisite, $site_id)
-    {
-        if ($this->state->schema_version !== null) {
-            $this->log->debug('no need to migrate schema version');
-            return;
-        }
-
-        $this->log->debug('schema version migration started');
-
-        $key = 'cavalcade_db_version';
-
-        if ($is_multisite) {
-            $table = $this->table_prefix . 'sitemeta';
-            $version = $this->db->prepare_query(
-                "SELECT `meta_value` FROM `$table`
-                WHERE `meta_key` = '$key' AND `site_id` = :site_id LIMIT 1",
-                function ($stmt) use ($site_id) {
-                    $stmt->bindValue(':site_id', $site_id, PDO::PARAM_INT);
-                    $stmt->execute();
-                    $v = $stmt->fetchColumn();
-                    return $v === false ? null : $v;
-                }
-            );
-            $delete_sql = "DELETE FROM `$table` WHERE `meta_key` = '$key'";
-        } else {
-            $table = $this->table_prefix . 'options';
-            $version = $this->db->prepare_query(
-                "SELECT `option_value` FROM `$table`
-                WHERE `option_name` = '$key' LIMIT 1",
-                function ($stmt) {
-                    $stmt->execute();
-                    $v = $stmt->fetchColumn();
-                    return $v === false ? null : $v;
-                }
-            );
-            $delete_sql = "DELETE FROM `$table` WHERE `option_name` = '$key'";
-        }
-
-        if ($version === false) {
-            $this->log->fatal('unable to find schema version in db');
-            throw new Exception('failed to migrate schema version');
-        }
-
-        $this->log->debug('retrieved schema version', ['version' => $version]);
-
-        $this->state->schema_version = (int)$version;
-        $this->save_current_state();
-
-        $this->db->prepare_query(
-            $delete_sql,
-            function ($stmt) {
-                $stmt->execute();
-            }
-        );
-
-        $this->log->debug('deleted database entry', ['sql' => $delete_sql]);
-        $this->log->info('schema version migrated from database to state file');
-    }
-
     public function bootstrap()
     {
         $this->load_state();
@@ -217,8 +158,6 @@ class Runner
         $this->table = $this->table_prefix . 'cavalcade_jobs';
         $charset = defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4';
         $collate = defined('DB_COLLATE') ? DB_COLLATE : 'utf8mb4_unicode_ci';
-        $is_multisite = defined('MULTISITE') && MULTISITE;
-        $site_id = $is_multisite ? (defined('CAVALCADE_SITE_ID') ? CAVALCADE_SITE_ID : (defined('SITE_ID_CURRENT_SITE') ? SITE_ID_CURRENT_SITE : 1)) : null;
         $db_host = DB_HOST;
         $db_user = DB_USER;
         $db_password = DB_PASSWORD;
@@ -227,9 +166,6 @@ class Runner
         $this->db = new DB($this->log);
         $this->db->connect($charset, $db_host, $db_user, $db_password, $db_name);
         $this->hooks->run('Runner.connect_to_db.connected', $this->db->get_connection());
-
-        // This will be removed once all migrations have been done.
-        $this->migrate_schema_version($is_multisite, $site_id);
 
         $schema = new DBSchema(
             $this->log,
