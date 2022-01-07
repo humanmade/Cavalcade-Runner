@@ -8,7 +8,7 @@ use Exception;
 include dirname(__DIR__) . '/autoload.php';
 
 date_default_timezone_set('UTC');
-$log = Logger::create('work/create-table.log');
+$log = Logger::create('work/log/create-table.log');
 $wpcli_path = '/usr/local/bin/wp';
 $wp_path = '/var/web/wp';
 

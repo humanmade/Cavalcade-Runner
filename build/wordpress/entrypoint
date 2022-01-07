@@ -37,7 +37,13 @@ wait-for-it -q db:3306
 build/common/wait-for-file "$runner_ctrl"
 trap "echo destroy_all > $runner_ctrl" EXIT
 
+# Setup log destination for this init process.
+rm -fr work/test-logs
+mkdir -p work/log work/test-logs
+
 echo create_table > "$runner_ctrl"
 cat "$ctrl_done_fifo" > /dev/null
+
+mv work/log work/test-logs/entrypoint
 
 vendor/bin/phpunit --log-junit work/test-result.xml

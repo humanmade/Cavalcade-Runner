@@ -1,6 +1,6 @@
 <?php
 
-const ACTUAL_FUNCTION = '/workspace/work/test_function_name.txt';
+const ACTUAL_FUNCTION = '/workspace/work/log/test_function_name.txt';
 const JOB = 'test_job';
 const JOB2 = 'test_job2';
 const JOB_CHATTY = 'test_job_chatty';

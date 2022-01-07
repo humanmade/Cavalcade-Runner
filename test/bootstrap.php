@@ -14,7 +14,7 @@ $cavalcade_for_testing = file_get_contents('/workspace/bin/cavalcade-runner');
 
 const CAVALCADE_HOOK = <<<'EOS'
 $runner->hooks->register('Runner.run.before', function () {
-    file_put_contents('/workspace/work/runner-started', "\n");
+    file_put_contents('/workspace/work/log/runner-started', "\n");
     file_put_contents('/workspace/work/runner-wptest.fifo', "\n");
 });
 
@@ -71,13 +71,13 @@ EOS;
 
 const CAVALCADE_GET_IP = <<<'EOS'
 $get_current_ips = function () {
-    if (file_exists('/workspace/work/get-current-ips-error')) {
+    if (file_exists('/workspace/work/log/get-current-ips-error')) {
         throw new MetadataError('failed to get URL: http://169.254.169.254/latest/meta-data/');
     }
 
     return [
         '192.0.0.8', // dummy IP address
-        file_get_contents('/workspace/work/public-ip'),
+        file_get_contents('/workspace/work/log/public-ip'),
     ];
 };
 EOS;
