@@ -25,6 +25,7 @@ class Runner
     public $max_log_size;
     public $state_path;
 
+    protected $pdoclass;
     protected $db;
     protected $workers = [];
     protected $wp_path;
@@ -38,6 +39,7 @@ class Runner
 
     public function __construct(
         $log,
+        $pdoclass,
         $max_workers,
         $wpcli_path,
         $cleanup_interval,
@@ -49,6 +51,7 @@ class Runner
         $max_log_size,
         $state_path
     ) {
+        $this->pdoclass = $pdoclass;
         $this->max_workers = $max_workers;
         $this->wpcli_path = $wpcli_path;
         $this->cleanup_interval = $cleanup_interval;
@@ -71,6 +74,7 @@ class Runner
      */
     public static function instance(
         $log,
+        $pdoclass,
         $max_workers,
         $wpcli_path,
         $cleanup_interval,
@@ -85,6 +89,7 @@ class Runner
         if (empty(static::$instance)) {
             static::$instance = new static(
                 $log,
+                $pdoclass,
                 $max_workers,
                 $wpcli_path,
                 $cleanup_interval,
@@ -158,13 +163,17 @@ class Runner
         $this->table = $this->table_prefix . 'cavalcade_jobs';
         $charset = defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4';
         $collate = defined('DB_COLLATE') ? DB_COLLATE : 'utf8mb4_unicode_ci';
-        $db_host = DB_HOST;
-        $db_user = DB_USER;
-        $db_password = DB_PASSWORD;
-        $db_name = DB_NAME;
 
-        $this->db = new DB($this->log);
-        $this->db->connect($charset, $db_host, $db_user, $db_password, $db_name);
+        $this->db = new DB(
+            $this->log,
+            $this->pdoclass,
+            $charset,
+            DB_HOST,
+            DB_USER,
+            DB_PASSWORD,
+            DB_NAME
+        );
+        $this->db->connect();
         $this->hooks->run('Runner.connect_to_db.connected', $this->db->get_connection());
 
         $schema = new DBSchema(
@@ -319,6 +328,7 @@ class Runner
                 }
                 $validate($fields == $schema, 'incorrect column description');
             },
+            true,
         );
 
         $this->db->execute_query(
@@ -334,6 +344,7 @@ class Runner
                     'deleted_at',
                 ], 'incorrect "uniqueness" index');
             },
+            true,
         );
 
         $this->db->execute_query(
@@ -343,6 +354,7 @@ class Runner
                 $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
                 $validate($fields == ['status', 'deleted_at'], 'incorrect "status" index');
             },
+            true,
         );
 
         $this->db->execute_query(
@@ -352,6 +364,7 @@ class Runner
                 $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
                 $validate($fields == ['site', 'deleted_at'], 'incorrect "site" index');
             },
+            true,
         );
 
         $this->db->execute_query(
@@ -361,6 +374,7 @@ class Runner
                 $fields = $stmt->fetchAll(PDO::FETCH_COLUMN, 4);
                 $validate($fields == ['hook', 'deleted_at'], 'incorrect "hook" index');
             },
+            true,
         );
 
         $this->db->execute_query(
@@ -373,6 +387,7 @@ class Runner
                     'incorrect "status-finished_at" index'
                 );
             },
+            true,
         );
     }
 
@@ -397,11 +412,11 @@ class Runner
 
                     $this->log->debug('db cleaned up', ['deleted_rows' => $count]);
                 },
+                true,
             );
         } catch (Exception $e) {
             $this->log->error('cleanup failed', ['ex_message' => $e->getMessage()]);
-            sleep(10); // throttle
-            // keep this process running
+            throw $e;
         }
     }
 
@@ -426,6 +441,7 @@ class Runner
                     $job->mark_done();
                 }
             },
+            true,
         );
     }
 
@@ -554,11 +570,11 @@ class Runner
                         $this->log,
                     ]);
                 },
+                true,
             );
         } catch (Exception $e) {
             $this->log->error('failed to get next job', ['ex_message' => $e->getMessage()]);
-            sleep(10); // throttle
-            return false;
+            throw $e;
         }
     }
 
@@ -604,6 +620,7 @@ class Runner
                 $job->cancel_lock();
             } catch (Exception $e) {
                 $this->log->error('failed to cancel lock', ['ex_message' => $e->getMessage()]);
+                throw $e;
             }
             sleep(10); // throttle
             return;
@@ -685,8 +702,7 @@ class Runner
                 $this->log->error('failed to finish job properly', [
                     'ex_message' => $e->getMessage(),
                 ]);
-                sleep(10); // throttle
-                // keep running
+                throw $e;
             } finally {
                 unset($this->workers[$id]);
             }

@@ -5,9 +5,7 @@ namespace HM\Cavalcade\Runner;
 use DateInterval;
 use DateTime;
 use DateTimeZone;
-use Exception;
 use PDO;
-use PDOException;
 
 class Job
 {
@@ -68,6 +66,7 @@ class Job
                 $stmt->execute();
                 return $stmt->rowCount();
             },
+            true,
         );
 
         if (0 === $row_count) {
@@ -83,6 +82,7 @@ class Job
                 $data = $stmt->fetch(PDO::FETCH_OBJ);
                 return $data->domain . $data->path;
             },
+            true,
         );
     }
 
@@ -109,6 +109,7 @@ class Job
 
                 return $stmt->rowCount() === 1;
             },
+            true,
         );
     }
 
@@ -122,6 +123,7 @@ class Job
                 $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
                 $stmt->execute();
             },
+            true,
         );
     }
 
@@ -142,6 +144,7 @@ class Job
                     $stmt->bindValue(':finished_at', $this->finished_at);
                     $stmt->execute();
                 },
+                true,
             );
         }
     }
@@ -165,6 +168,7 @@ class Job
                 $stmt->bindValue(':finished_at', $this->finished_at);
                 $stmt->execute();
             },
+            true,
         );
     }
 }

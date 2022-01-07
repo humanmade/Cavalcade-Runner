@@ -35,14 +35,14 @@ set_error_handler(function ($errno, $errstr, $errfile, $errline) use ($log) {
         return false;
     }
 
-    $log->error('PHP error', [
+    $log->debug('PHP error', [
         'no' => $errno,
         'str' => $errstr,
         'file' => $errfile,
         'line' => $errline,
     ]);
 
-    throw new Exception("PHP error ocurred: $errstr");
+    throw new PHPException("PHP error ocurred: $errstr", $errno, $errstr, $errfile, $errline);
 });
 
 const NETWORK_MACS_URL = 'http://169.254.169.254/latest/meta-data/network/interfaces/macs/';
@@ -74,6 +74,10 @@ $get_current_ips = function () {
 
 /*CAVALCADE_GET_IP_FOR_TESTING*/
 
+$pdoclass = 'PDO';
+
+/*CAVALCADE_PDOCLASS_FOR_TESTING*/
+
 file_put_contents($pid_file, $pid);
 
 try {
@@ -81,6 +85,7 @@ try {
     $lockfile = ensure_singleton($log, $lockfile_path, $eip);
     $runner = Runner::instance(
         $log,
+        $pdoclass,
         $max_workers_count,
         $wpcli_path,
         $cleanup_interval,

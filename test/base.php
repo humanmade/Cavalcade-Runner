@@ -33,9 +33,6 @@ const JOB2 = 'test_job2';
 const JOB_CHATTY = 'test_job_chatty';
 const JOB_FAILED = 'test_job_failed';
 const JOB_LONG = 'test_job_long';
-const JOB_ACQUIRING_LOCK_ERROR = 'test_job_acquiring_lock_error';
-const JOB_CANCELING_LOCK_ERROR = 'test_job_canceling_lock_error';
-const JOB_FINISHING_ERROR = 'test_job_finishing_error';
 const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
 const MAX_LOG_SIZE = 2000;
 
