@@ -17,10 +17,10 @@ const STATUS_WAITING = 'waiting';
 const STATUS_RUNNING = 'running';
 const STATUS_DONE = 'done';
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
-const WPTEST_WPCLI_FIFO = '/workspace/work/wptest-wpcli.fifo';
-const WPCLI_WPTEST_FIFO = '/workspace/work/wpcli-wptest.fifo';
-const RUNNER_WPTEST_FIFO = '/workspace/work/runner-wptest.fifo';
-const WPTEST_RUNNER_FIFO = '/workspace/work/wptest-runner.fifo';
+const WPTEST_WPCLI_FIFO = '/workspace/work/log/wptest-wpcli.fifo';
+const WPCLI_WPTEST_FIFO = '/workspace/work/log/wpcli-wptest.fifo';
+const WPTEST_RUNNER_FIFO = '/workspace/work/log/wptest-runner.fifo';
+const RUNNER_WPTEST_FIFO = '/workspace/work/log/runner-wptest.fifo';
 const RUNNER_STARTED = '/workspace/work/log/runner-started';
 const LOCKFILE = '/workspace/work/runner.lock';
 const STATE_FILE = '/workspace/work/log/runner-state.json';
@@ -47,6 +47,7 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
     protected static function wait_runner_blocking()
     {
         file_get_contents(RUNNER_WPTEST_FIFO);
+        file_put_contents(WPTEST_RUNNER_FIFO, "\n");
     }
 
     public static function log($message)
@@ -164,8 +165,7 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         $this->exit_runner();
 
         # Save log files created by this test.
-        $reflect = new ReflectionClass($this);
-        $class = $reflect->getShortName();
+        $class = (new ReflectionClass($this))->getShortName();
         $method = $this->getName();
         @mkdir(TEST_LOGS_DIR . "/$class", 0755, true);
         rename(LOG_DIR, TEST_LOGS_DIR . "/$class/$method");

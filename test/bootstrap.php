@@ -15,7 +15,8 @@ $cavalcade_for_testing = file_get_contents('/workspace/bin/cavalcade-runner');
 const CAVALCADE_HOOK = <<<'EOS'
 $runner->hooks->register('Runner.run.before', function () {
     file_put_contents('/workspace/work/log/runner-started', "\n");
-    file_put_contents('/workspace/work/runner-wptest.fifo', "\n");
+    file_put_contents('/workspace/work/log/runner-wptest.fifo', "\n");
+    file_get_contents('/workspace/work/log/wptest-runner.fifo');
 });
 
 $runner->hooks->register('Runner.run_job.acquiring_lock', function ($db, $job) {
