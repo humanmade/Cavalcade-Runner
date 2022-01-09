@@ -4,28 +4,31 @@ namespace HM\Cavalcade\Runner\Tests;
 
 use DateTime;
 use Exception;
+use ReflectionClass;
 use WP_UnitTestCase;
 
 const SCHEMA_VERSION = 12;
-const RUNNER_LOG = '/workspace/work/cavalcade-runner.log';
-const ACTUAL_FUNCTION = '/workspace/work/test_function_name.txt';
+const TEST_LOGS_DIR = '/workspace/work/test-logs';
+const LOG_DIR = '/workspace/work/log';
+const RUNNER_LOG = '/workspace/work/log/cavalcade-runner.log';
+const ACTUAL_FUNCTION = '/workspace/work/log/test_function_name.txt';
 const RECUR_HOURLY = 'hourly';
 const STATUS_WAITING = 'waiting';
 const STATUS_RUNNING = 'running';
 const STATUS_DONE = 'done';
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
-const WPTEST_WPCLI_FIFO = '/workspace/work/wptest-wpcli.fifo';
-const WPCLI_WPTEST_FIFO = '/workspace/work/wpcli-wptest.fifo';
-const RUNNER_WPTEST_FIFO = '/workspace/work/runner-wptest.fifo';
-const WPTEST_RUNNER_FIFO = '/workspace/work/wptest-runner.fifo';
-const RUNNER_STARTED = '/workspace/work/runner-started';
+const WPTEST_WPCLI_FIFO = '/workspace/work/log/wptest-wpcli.fifo';
+const WPCLI_WPTEST_FIFO = '/workspace/work/log/wpcli-wptest.fifo';
+const WPTEST_RUNNER_FIFO = '/workspace/work/log/wptest-runner.fifo';
+const RUNNER_WPTEST_FIFO = '/workspace/work/log/runner-wptest.fifo';
+const RUNNER_STARTED = '/workspace/work/log/runner-started';
 const LOCKFILE = '/workspace/work/runner.lock';
-const STATE_FILE = '/workspace/work/runner-state.json';
+const STATE_FILE = '/workspace/work/log/runner-state.json';
 const RUNNER_CTRL_FIFO = '/workspace/work/runner_ctrl.fifo';
 const RUNNER_CTRL_DONE_FIFO = '/workspace/work/runner_ctrl_done.fifo';
 const DOT_MAINTENANCE = '/www-work/.maintenance';
-const PUBLIC_IP = '/workspace/work/public-ip';
-const GET_CURRENT_IPS_ERROR = '/workspace/work/get-current-ips-error';
+const PUBLIC_IP = '/workspace/work/log/public-ip';
+const GET_CURRENT_IPS_ERROR = '/workspace/work/log/get-current-ips-error';
 const EPHEMERAL_IP = '192.0.2.1';
 const EIP = '192.0.2.255';
 const JOB = 'test_job';
@@ -33,9 +36,6 @@ const JOB2 = 'test_job2';
 const JOB_CHATTY = 'test_job_chatty';
 const JOB_FAILED = 'test_job_failed';
 const JOB_LONG = 'test_job_long';
-const JOB_ACQUIRING_LOCK_ERROR = 'test_job_acquiring_lock_error';
-const JOB_CANCELING_LOCK_ERROR = 'test_job_canceling_lock_error';
-const JOB_FINISHING_ERROR = 'test_job_finishing_error';
 const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
 const MAX_LOG_SIZE = 2000;
 
@@ -47,6 +47,7 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
     protected static function wait_runner_blocking()
     {
         file_get_contents(RUNNER_WPTEST_FIFO);
+        file_put_contents(WPTEST_RUNNER_FIFO, "\n");
     }
 
     public static function log($message)
@@ -81,14 +82,12 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
     {
         global $wpdb;
 
-        # Exit Cavalcade-Runner process and confirm it.
-        file_put_contents(RUNNER_CTRL_FIFO, "exit\n");
-        file_get_contents(RUNNER_CTRL_DONE_FIFO);
-
-        # This will delete files opened by the runner process.
-        $this->close_communication_channels();
+        $this->exit_runner();
 
         $this->table = $wpdb->base_prefix . 'cavalcade_jobs';
+
+        # Create a new log directory and use it.
+        mkdir(LOG_DIR, 0755, true);
 
         # Recreate database.
         # Database is required to run WordPress with Cavalcade plugin.
@@ -147,8 +146,12 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         $this->open_gate();
     }
 
-    private function close_communication_channels()
+    private function exit_runner()
     {
+        # Exit Cavalcade-Runner process and confirm it.
+        file_put_contents(RUNNER_CTRL_FIFO, "exit\n");
+        file_get_contents(RUNNER_CTRL_DONE_FIFO);
+
         # Close files used for communication.
         @fclose($this->lockfile);
         @unlink(WPTEST_WPCLI_FIFO);
@@ -159,7 +162,14 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
 
     function tearDown()
     {
-        $this->close_communication_channels();
+        $this->exit_runner();
+
+        # Save log files created by this test.
+        $class = (new ReflectionClass($this))->getShortName();
+        $method = $this->getName();
+        @mkdir(TEST_LOGS_DIR . "/$class", 0755, true);
+        rename(LOG_DIR, TEST_LOGS_DIR . "/$class/$method");
+
         parent::tearDown();
     }
 

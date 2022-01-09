@@ -1,13 +1,13 @@
 <?php
 
-const ACTUAL_FUNCTION = '/workspace/work/test_function_name.txt';
+const ACTUAL_FUNCTION = '/workspace/work/log/test_function_name.txt';
 const JOB = 'test_job';
 const JOB2 = 'test_job2';
 const JOB_CHATTY = 'test_job_chatty';
 const JOB_FAILED = 'test_job_failed';
 const JOB_LONG = 'test_job_long';
-const WPTEST_WPCLI_FIFO = '/workspace/work/wptest-wpcli.fifo';
-const WPCLI_WPTEST_FIFO = '/workspace/work/wpcli-wptest.fifo';
+const WPTEST_WPCLI_FIFO = '/workspace/work/log/wptest-wpcli.fifo';
+const WPCLI_WPTEST_FIFO = '/workspace/work/log/wpcli-wptest.fifo';
 const TEXT_124 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n";
 
 function go_wptest_blocking()

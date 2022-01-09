@@ -34,6 +34,12 @@ jobs:
       run: echo "WP_MULTISITE=${{matrix.wp-multisite}}" >> $GITHUB_ENV
     - run: build/build-image
     - run: build/run-test
+    - name: Upload Test Logs
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-logs-php${{matrix.php-version}}-wp${{matrix.wp-version}}-ms${{matrix.wp-multisite}}
+        path: work/test-logs
     - name: Upload Unit Test Results
       if: always()
       uses: actions/upload-artifact@v2

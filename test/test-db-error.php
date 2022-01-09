@@ -16,7 +16,7 @@ class Test_DB_Error extends CavalcadeRunner_TestCase
 
     function test_acquire_lock_error()
     {
-        wp_schedule_single_event(time(), JOB_ACQUIRING_LOCK_ERROR);
+        wp_schedule_single_event(time(), 'test_job_acquiring_lock_error');
 
         sleep(30);
 
@@ -33,20 +33,16 @@ class Test_DB_Error extends CavalcadeRunner_TestCase
 
     function test_cancel_lock_error()
     {
-        wp_schedule_single_event(time(), JOB_CANCELING_LOCK_ERROR);
+        wp_schedule_single_event(time(), 'test_job_canceling_lock_error');
 
-        sleep(30);
+        sleep(10);
 
         $lines = explode("\n", file_get_contents(RUNNER_LOG));
-        $db_cleaned_up_count = 0;
         $database_error_01000_message = false;
         $exception_for_testing_message = false;
         $failed_to_cancel_lock_message = false;
+        $fatal_error = false;
         foreach ($lines as $line) {
-            if (strstr($line, '"db cleaned up"')) {
-                $db_cleaned_up_count++;
-            }
-
             if (strstr($line, '"database error"') && strstr($line, '"01000"')) {
                 $database_error_01000_message = true;
             }
@@ -58,31 +54,31 @@ class Test_DB_Error extends CavalcadeRunner_TestCase
             if (strstr($line, '"exception for testing"')) {
                 $exception_for_testing_message = true;
             }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
         }
-        $this->assertBetweenWeak(7, 12, $db_cleaned_up_count);
         $this->assertTrue($database_error_01000_message);
         $this->assertTrue($exception_for_testing_message);
         $this->assertTrue($failed_to_cancel_lock_message);
+        $this->assertTrue($fatal_error);
     }
 
     function test_job_finishing_error()
     {
-        wp_schedule_single_event(time(), JOB_FINISHING_ERROR);
+        wp_schedule_single_event(time(), 'test_job_finishing_error');
 
         self::wait_wpcli_blocking();
         self::go_wpcli_blocking();
 
-        sleep(30);
+        sleep(10);
 
         $lines = explode("\n", file_get_contents(RUNNER_LOG));
-        $db_cleaned_up_count = 0;
         $database_error_01000_message = false;
         $failed_to_finish_job_properly_message = false;
+        $fatal_error = false;
         foreach ($lines as $line) {
-            if (strstr($line, '"db cleaned up"')) {
-                $db_cleaned_up_count++;
-            }
-
             if (strstr($line, '"database error"') && strstr($line, '"01000"')) {
                 $database_error_01000_message = true;
             }
@@ -90,9 +86,213 @@ class Test_DB_Error extends CavalcadeRunner_TestCase
             if (strstr($line, '"failed to finish job properly"')) {
                 $failed_to_finish_job_properly_message = true;
             }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
         }
-        $this->assertBetweenWeak(7, 13, $db_cleaned_up_count);
         $this->assertTrue($database_error_01000_message);
         $this->assertTrue($failed_to_finish_job_properly_message);
+        $this->assertTrue($fatal_error);
+    }
+
+    function test_lost_connection_error()
+    {
+        wp_schedule_single_event(time(), 'test_lost_connection_error');
+
+        sleep(20);
+
+        $lines = explode("\n", file_get_contents(RUNNER_LOG));
+        $database_error_message = false;
+        $worker_started_message = false;
+        $retriable_database_error_message = false;
+        $fatal_error = false;
+        foreach ($lines as $line) {
+            if (strstr($line, '"database error"')) {
+                $database_error_message = true;
+            }
+
+            if (strstr($line, '"retriable database error"')) {
+                $retriable_database_error_message = true;
+            }
+
+            if (strstr($line, '"worker started"')) {
+                $worker_started_message = true;
+            }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
+        }
+        $this->assertFalse($database_error_message);
+        $this->assertTrue($retriable_database_error_message);
+        $this->assertTrue($worker_started_message);
+        $this->assertFalse($fatal_error);
+    }
+
+    function test_packet_out_of_order_error()
+    {
+        wp_schedule_single_event(time(), 'test_packet_out_of_order_error');
+
+        sleep(20);
+
+        $lines = explode("\n", file_get_contents(RUNNER_LOG));
+        $database_error_message = false;
+        $worker_started_message = false;
+        $retriable_database_error_message = false;
+        $exception_during_starting_job_message = false;
+        $fatal_error = false;
+        foreach ($lines as $line) {
+            if (strstr($line, '"database error"')) {
+                $database_error_message = true;
+            }
+
+            if (strstr($line, '"retriable database error"')) {
+                $retriable_database_error_message = true;
+            }
+
+            if (strstr($line, '"worker started"')) {
+                $worker_started_message = true;
+            }
+
+            if (strstr($line, '"exception during starting job"')) {
+                $exception_during_starting_job_message = true;
+            }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
+        }
+        $this->assertFalse($database_error_message);
+        $this->assertTrue($retriable_database_error_message);
+        $this->assertTrue($worker_started_message);
+        $this->assertFalse($exception_during_starting_job_message);
+        $this->assertFalse($fatal_error);
+    }
+
+    function test_repeating_packet_out_of_order_error()
+    {
+        wp_schedule_single_event(time(), 'test_repeating_packet_out_of_order_error');
+
+        sleep(30);
+
+        $lines = explode("\n", file_get_contents(RUNNER_LOG));
+        $retriable_database_error_message = false;
+        $exception_during_starting_job_message = false;
+        $failed_to_cancel_lock_message = false;
+        $fatal_error = false;
+        foreach ($lines as $line) {
+            if (strstr($line, '"retriable database error"')) {
+                $retriable_database_error_message = true;
+            }
+
+            if (strstr($line, '"exception during starting job"')) {
+                $exception_during_starting_job_message = true;
+            }
+
+            if (strstr($line, '"failed to cancel lock"')) {
+                $failed_to_cancel_lock_message = true;
+            }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
+        }
+        $this->assertTrue($retriable_database_error_message);
+        $this->assertTrue($exception_during_starting_job_message);
+        $this->assertTrue($failed_to_cancel_lock_message);
+        $this->assertTrue($fatal_error);
+    }
+
+    function test_unknown_php_error()
+    {
+        wp_schedule_single_event(time(), 'test_unknown_php_error');
+
+        sleep(20);
+
+        $lines = explode("\n", file_get_contents(RUNNER_LOG));
+        $database_error_message = false;
+        $worker_started_message = false;
+        $retriable_database_error_message = false;
+        $exception_during_starting_job_message = false;
+        $failed_to_cancel_lock_message = false;
+        $fatal_error = false;
+        foreach ($lines as $line) {
+            if (strstr($line, '"database error"')) {
+                $database_error_message = true;
+            }
+
+            if (strstr($line, '"retriable database error"')) {
+                $retriable_database_error_message = true;
+            }
+
+            if (strstr($line, '"worker started"')) {
+                $worker_started_message = true;
+            }
+
+            if (strstr($line, '"exception during starting job"')) {
+                $exception_during_starting_job_message = true;
+            }
+
+            if (strstr($line, '"failed to cancel lock"')) {
+                $failed_to_cancel_lock_message = true;
+            }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
+        }
+        $this->assertFalse($database_error_message);
+        $this->assertFalse($retriable_database_error_message);
+        $this->assertFalse($worker_started_message);
+        $this->assertTrue($exception_during_starting_job_message);
+        $this->assertFalse($failed_to_cancel_lock_message);
+        $this->assertFalse($fatal_error);
+    }
+
+    function test_repeating_unknown_php_error()
+    {
+        wp_schedule_single_event(time(), 'test_repeating_unknown_php_error');
+
+        sleep(20);
+
+        $lines = explode("\n", file_get_contents(RUNNER_LOG));
+        $database_error_message = false;
+        $worker_started_message = false;
+        $retriable_database_error_message = false;
+        $exception_during_starting_job_message = false;
+        $failed_to_cancel_lock_message = false;
+        $fatal_error = false;
+        foreach ($lines as $line) {
+            if (strstr($line, '"database error"')) {
+                $database_error_message = true;
+            }
+
+            if (strstr($line, '"retriable database error"')) {
+                $retriable_database_error_message = true;
+            }
+
+            if (strstr($line, '"worker started"')) {
+                $worker_started_message = true;
+            }
+
+            if (strstr($line, '"exception during starting job"')) {
+                $exception_during_starting_job_message = true;
+            }
+
+            if (strstr($line, '"failed to cancel lock"')) {
+                $failed_to_cancel_lock_message = true;
+            }
+
+            if (strstr($line, '"FATAL"')) {
+                $fatal_error = true;
+            }
+        }
+        $this->assertFalse($database_error_message);
+        $this->assertFalse($retriable_database_error_message);
+        $this->assertFalse($worker_started_message);
+        $this->assertTrue($exception_during_starting_job_message);
+        $this->assertTrue($failed_to_cancel_lock_message);
+        $this->assertTrue($fatal_error);
     }
 }
