@@ -8,6 +8,7 @@ use PDOException;
 
 class DB
 {
+    protected $log;
     protected $db;
     protected $charset;
     protected $host;
@@ -91,6 +92,15 @@ class DB
         $errstr = $e->getErrstr();
 
         if (strpos($errstr, 'Packets out of order.') === 0) {
+            return true;
+        }
+
+        # PHP 7.3
+        if (strpos($errstr, 'Error while sending STMT_PREPARE packet.') === 0) {
+            return true;
+        }
+
+        if (strstr($errstr, 'MySQL server has gone away') !== false) {
             return true;
         }
 
