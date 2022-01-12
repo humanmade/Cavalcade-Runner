@@ -28,13 +28,13 @@ class Worker
         $this->max_log_size = $max_log_size;
     }
 
-    public static function log_values(Worker $worker)
+    public function log_values_full()
     {
-        return Job::log_values($worker->job) + [
-            'stdout' => $worker->get_stdout(),
-            'stderr' => $worker->get_stderr(),
-            'error_log' => $worker->get_error_log(),
-            'proc' => $worker->get_status(),
+        return $this->job->log_values_full() + [
+            'stdout' => $this->get_stdout(),
+            'stderr' => $this->get_stderr(),
+            'error_log' => $this->get_error_log(),
+            'proc' => $this->get_status(),
         ];
     }
 
@@ -46,7 +46,7 @@ class Worker
 
         $this->status = proc_get_status($this->process);
         if ($this->status === false) {
-            $this->log->error('proc_get_status() failed', self::log_values($this));
+            $this->log->error('proc_get_status() failed', $this->log_values_full());
             return true;
         }
         $this->log->debug_app('worker status', ['job_id' => $this->job->id, 'status' => $this->status]);

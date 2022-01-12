@@ -4,6 +4,16 @@ namespace HM\Cavalcade\Runner\Tests;
 
 class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
 {
+    private static function go_wpcli_blocking()
+    {
+        file_put_contents(WPTEST_WPCLI_FIFO, "\n");
+    }
+
+    private static function wait_wpcli_blocking()
+    {
+        file_get_contents(WPCLI_WPTEST_FIFO);
+    }
+
     public function setUp()
     {
         parent::setUp();
@@ -49,22 +59,18 @@ class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
 
     function test_abandoned_single_jobs()
     {
-        sleep(2);
+        self::wait_wpcli_blocking();
+        self::go_wpcli_blocking();
 
-        $job = $this->get_job(JOB);
-        $this->assertEquals('done', $job->status);
-        $this->assertNotNull($job->finished_at);
+        self::wait_wpcli_blocking();
+        self::go_wpcli_blocking();
 
-        $job2 = $this->get_job(JOB2);
-        $this->assertEquals('waiting', $job2->status);
-        $this->assertNotNull($job2->finished_at);
-
-        sleep(2);
+        sleep(10);
 
         $log = file_get_contents(RUNNER_LOG);
         $this->assertEquals(4, substr_count($log, 'ERROR'));
         $this->assertEquals(4, substr_count($log, 'abandoned worker found'));
-        $this->assertEquals(2, substr_count($log, 'app'));
-        $this->assertEquals(1, substr_count($log, 'Cavalcade Runner started'));
+        $this->assertEquals(2, substr_count($log, 'marked as waiting'));
+        $this->assertEquals(2, substr_count($log, 'job completed'));
     }
 }
