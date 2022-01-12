@@ -102,9 +102,9 @@ class Job
     }
 
     /**
-     * Acquire a "running" lock on this this
+     * Acquire a "running" lock on this job
      *
-     * Ensures that only one supervisor can run the this at once.
+     * Ensures that only one supervisor can run the job at once.
      *
      * @return bool True if we acquired the lock, false if we couldn't.
      */
