@@ -397,7 +397,7 @@ class Runner
         $expired->sub(new DateInterval("PT{$this->cleanup_delay}S"));
         $expired_str = $expired->format(MYSQL_DATE_FORMAT);
 
-        $this->log->debug('cleaning up', ['expired' => $expired_str]);
+        // $this->log->debug('cleaning up', ['expired' => $expired_str]);
 
         try {
             $this->db->prepare_query(
@@ -412,7 +412,10 @@ class Runner
                     $stmt->execute();
                     $count = $stmt->rowCount();
 
-                    $this->log->debug('db cleaned up', ['deleted_rows' => $count]);
+                    $this->log->debug('db cleaned up', [
+                        'deleted_rows' => $count,
+                        'expired' => $expired_str,
+                    ]);
                 },
                 true,
             );
@@ -421,7 +424,7 @@ class Runner
             throw $e;
         }
 
-        $this->log->debug('cleanup done', ['expired' => $expired_str]);
+        // $this->log->debug('cleanup done', ['expired' => $expired_str]);
     }
 
     public function cleanup_abandoned()
