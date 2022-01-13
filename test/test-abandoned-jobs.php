@@ -14,37 +14,9 @@ class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
         file_get_contents(WPCLI_WPTEST_FIFO);
     }
 
-    public function setUp()
-    {
-        parent::setUp();
-
-        wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
-        wp_schedule_event(time(), RECUR_HOURLY, JOB2, [__FUNCTION__]);
-        $this->set_running(JOB);
-        $this->set_running(JOB2);
-
-        # Start runner after adding jobs.
-        $this->start_runner_process();
-        $this->open_gate();
-    }
-
     protected function start_runner()
     {
         # Don't start runner at this time.
-    }
-
-    private function get_job($job)
-    {
-        global $wpdb;
-
-        $sql = $wpdb->prepare(
-            "SELECT * FROM `$this->table` WHERE `hook` = %s",
-            [$job],
-        );
-
-        $res = $wpdb->get_results($sql);
-
-        return 0 < count($res) ? $res[0] : null;
     }
 
     private function set_running($job)
@@ -57,10 +29,14 @@ class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
         ));
     }
 
-    function test_abandoned_single_jobs()
+    function test_abandoned_single_job()
     {
-        self::wait_wpcli_blocking();
-        self::go_wpcli_blocking();
+        wp_schedule_single_event(time(), JOB, [__FUNCTION__]);
+        $this->set_running(JOB);
+
+        # Start runner after adding jobs.
+        $this->start_runner_process();
+        $this->open_gate();
 
         self::wait_wpcli_blocking();
         self::go_wpcli_blocking();
@@ -69,8 +45,29 @@ class Test_Abandoned_Jobs extends CavalcadeRunner_TestCase
 
         $log = file_get_contents(RUNNER_LOG);
         $this->assertEquals(0, substr_count($log, 'ERROR'));
-        $this->assertEquals(2, substr_count($log, 'abandoned worker found'));
-        $this->assertEquals(2, substr_count($log, 'marked as waiting'));
-        $this->assertEquals(2, substr_count($log, 'job completed'));
+        $this->assertEquals(1, substr_count($log, 'abandoned worker found'));
+        $this->assertEquals(1, substr_count($log, 'marked as waiting'));
+        $this->assertEquals(1, substr_count($log, 'job completed'));
+    }
+
+    function test_abandoned_schedule_job()
+    {
+        wp_schedule_event(time(), RECUR_HOURLY, JOB2, [__FUNCTION__]);
+        $this->set_running(JOB2);
+
+        # Start runner after adding jobs.
+        $this->start_runner_process();
+        $this->open_gate();
+
+        self::wait_wpcli_blocking();
+        self::go_wpcli_blocking();
+
+        sleep(10);
+
+        $log = file_get_contents(RUNNER_LOG);
+        $this->assertEquals(0, substr_count($log, 'ERROR'));
+        $this->assertEquals(1, substr_count($log, 'abandoned worker found'));
+        $this->assertEquals(1, substr_count($log, 'marked as waiting'));
+        $this->assertEquals(1, substr_count($log, 'job completed'));
     }
 }
