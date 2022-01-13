@@ -397,6 +397,8 @@ class Runner
         $expired->sub(new DateInterval("PT{$this->cleanup_delay}S"));
         $expired_str = $expired->format(MYSQL_DATE_FORMAT);
 
+        // $this->log->debug('cleaning up', ['expired' => $expired_str]);
+
         try {
             $this->db->prepare_query(
                 "DELETE FROM `$this->table`
@@ -410,7 +412,10 @@ class Runner
                     $stmt->execute();
                     $count = $stmt->rowCount();
 
-                    $this->log->debug('db cleaned up', ['deleted_rows' => $count]);
+                    $this->log->debug('db cleaned up', [
+                        'deleted_rows' => $count,
+                        'expired' => $expired_str,
+                    ]);
                 },
                 true,
             );
@@ -418,10 +423,14 @@ class Runner
             $this->log->error('cleanup failed', ['ex_message' => $e->getMessage()]);
             throw $e;
         }
+
+        // $this->log->debug('cleanup done', ['expired' => $expired_str]);
     }
 
     public function cleanup_abandoned()
     {
+        $this->log->debug('cleaning up abandoned');
+
         $this->db->prepare_query(
             "SELECT * FROM `$this->table` WHERE `status` = 'running'",
             function ($stmt) {
@@ -436,13 +445,15 @@ class Runner
                         break;
                     }
 
-                    $this->log->error('abandoned worker found', Job::log_values($job));
-                    $this->log->error_app('abandoned worker found', Job::log_values($job));
-                    $job->mark_done();
+                    $this->log->error('abandoned worker found', $job->log_values_full());
+                    $this->log->error_app('abandoned worker found', $job->log_values_full());
+                    $job->mark_waiting();
                 }
             },
             true,
         );
+
+        $this->log->debug('cleanup abandoned done');
     }
 
     public function is_maintenance_mode()
@@ -555,8 +566,10 @@ class Runner
 
     protected function get_next_job()
     {
+        // $this->log->debug('trying to get next job');
+
         try {
-            return $this->db->prepare_query(
+            $res = $this->db->prepare_query(
                 "SELECT * FROM `$this->table`
                  WHERE `nextrun` < NOW()
                  AND `status` = 'waiting'
@@ -576,6 +589,14 @@ class Runner
             $this->log->error('failed to get next job', ['ex_message' => $e->getMessage()]);
             throw $e;
         }
+
+        if (empty($res)) {
+            // $this->log->debug('next job not found');
+        } else {
+            $this->log->debug('next job', $res->log_values());
+        }
+
+        return $res;
     }
 
     protected function run_job($job)
@@ -628,7 +649,7 @@ class Runner
         $worker = new Worker($process, $pipes, $job, $this->log, $error_log_file, $this->max_log_size);
         $this->workers[] = $worker;
 
-        $this->log->debug('worker started', ['job_id' => $job->id]);
+        $this->log->debug('worker started', $job->log_values());
         $this->hooks->run('Runner.run_job.started', $worker, $job);
     }
 
@@ -657,6 +678,8 @@ class Runner
             $pipes_stderr[$id] = $worker->pipes[2];
         }
 
+        // $this->log->debug('checking workers', ['count' => count($this->workers)]);
+
         $out_write = $out_except = [];
         $changed_stdout = stream_select($pipes_stdout, $out_write, $out_except, 0);
         if ($changed_stdout === false) {
@@ -672,6 +695,7 @@ class Runner
         }
 
         if ($changed_stdout === 0 && $changed_stderr === 0) {
+            // $this->log->debug('changes not found', ['count' => count($this->workers)]);
             return;
         }
 
@@ -688,13 +712,13 @@ class Runner
                 $this->hooks->run('Runner.check_workers.job_finishing', $this->db->get_connection(), $worker, $worker->job);
                 if ($worker->shutdown()) {
                     $worker->job->mark_done();
-                    $this->log->info_app('job completed', Worker::log_values($worker));
+                    $this->log->info_app('job completed', $worker->log_values_full());
                     $this->hooks->run('Runner.check_workers.job_completed', $worker, $worker->job);
                 } else {
                     $worker->job->mark_done();
                     $this->log->error_app(
                         'job failed: failed to shutdown worker',
-                        Worker::log_values($worker),
+                        $worker->log_values_full()
                     );
                     $this->hooks->run('Runner.check_workers.job_failed', $worker, $worker->job);
                 }

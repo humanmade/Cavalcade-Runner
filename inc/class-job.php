@@ -38,28 +38,37 @@ class Job
         $this->log = $log;
     }
 
-    public static function log_values(Job $job)
+    public function log_values_full()
+    {
+        return $this->log_values() + [
+            'nextrun' => $this->nextrun,
+            'interval' => $this->interval,
+            'status' => $this->status,
+            'schedule' => $this->schedule,
+            'registered_at' => $this->registered_at,
+            'revised_at' => $this->revised_at,
+            'started_at' => $this->started_at,
+            'finished_at' => $this->finished_at,
+        ];
+    }
+
+    public function log_values()
     {
         return [
-            'job_id' => intval($job->id),
-            'hook' => $job->hook,
-            'hook_instance' => $job->hook_instance,
-            'args' => $job->args,
-            'args_digest' => $job->args_digest,
-            'nextrun' => $job->nextrun,
-            'interval' => $job->interval,
-            'status' => $job->status,
-            'schedule' => $job->schedule,
-            'registered_at' => $job->registered_at,
-            'revised_at' => $job->revised_at,
-            'started_at' => $job->started_at,
-            'finished_at' => $job->finished_at,
-            'deleted_at' => $job->deleted_at,
+            'job_id' => intval($this->id),
+            'site' => intval($this->site),
+            'hook' => $this->hook,
+            'hook_instance' => $this->hook_instance,
+            'args' => $this->args,
+            'args_digest' => $this->args_digest,
+            'deleted_at' => $this->deleted_at,
         ];
     }
 
     public function get_site_url()
     {
+        $this->log->debug('getting site url', $this->log_values());
+
         $row_count = $this->db->prepare_query(
             "SHOW TABLES LIKE '{$this->table_prefix}blogs'",
             function ($stmt) {
@@ -70,10 +79,12 @@ class Job
         );
 
         if (0 === $row_count) {
+            $this->log->debug('site url not found', $this->log_values());
+
             return false;
         }
 
-        return $this->db->prepare_query(
+        $res = $this->db->prepare_query(
             "SELECT `domain`, `path` FROM `{$this->table_prefix}blogs` WHERE `blog_id` = :site",
             function ($stmt) {
                 $stmt->bindValue(':site', $this->site, PDO::PARAM_INT);
@@ -84,6 +95,10 @@ class Job
             },
             true,
         );
+
+        $this->log->debug('site url', ['siteurl' => $res] + $this->log_values());
+
+        return $res;
     }
 
     /**
@@ -95,10 +110,12 @@ class Job
      */
     public function acquire_lock()
     {
+        $this->log->debug('acquiring lock', $this->log_values());
+
         $started_at = new DateTime('now', new DateTimeZone('UTC'));
         $this->started_at = $started_at->format(MYSQL_DATE_FORMAT);
 
-        return $this->db->prepare_query(
+        $res = $this->db->prepare_query(
             "UPDATE `$this->table`
              SET `status` = 'running', `started_at` = :started_at
              WHERE `status` = 'waiting' AND id = :id",
@@ -111,10 +128,20 @@ class Job
             },
             true,
         );
+
+        if ($res) {
+            $this->log->debug('lock acquired', $this->log_values());
+        } else {
+            $this->log->debug('lock not acquired', $this->log_values());
+        }
+
+        return $res;
     }
 
     public function cancel_lock()
     {
+        $this->log->debug('canceling lock', $this->log_values());
+
         $this->db->prepare_query(
             "UPDATE `$this->table`
              SET `status` = 'waiting', `started_at` = NULL
@@ -125,15 +152,20 @@ class Job
             },
             true,
         );
+
+        $this->log->debug('lock canceled', $this->log_values());
     }
 
     public function mark_done()
     {
+        $this->log->debug('marking as done', $this->log_values());
+
         $finished_at = new DateTime('now', new DateTimeZone('UTC'));
         $this->finished_at = $finished_at->format(MYSQL_DATE_FORMAT);
 
         if ($this->interval) {
             $this->reschedule();
+            $this->log->debug('rescheduled', $this->log_values());
         } else {
             $this->db->prepare_query(
                 "UPDATE `$this->table`
@@ -146,10 +178,33 @@ class Job
                 },
                 true,
             );
+
+            $this->log->debug('marked as done', $this->log_values());
         }
     }
 
-    public function reschedule()
+    public function mark_waiting()
+    {
+        $this->log->debug('marking as waiting', $this->log_values());
+
+        $this->status = 'waiting';
+
+        $this->db->prepare_query(
+            "UPDATE `$this->table`
+             SET `status` = :status
+             WHERE `id` = :id",
+            function ($stmt) {
+                $stmt->bindValue(':id', $this->id, PDO::PARAM_INT);
+                $stmt->bindValue(':status', $this->status);
+                $stmt->execute();
+            },
+            true,
+        );
+
+        $this->log->debug('marked as waiting', $this->log_values());
+    }
+
+    private function reschedule()
     {
         $date = new DateTime('now', new DateTimeZone('UTC'));
         $date->add(new DateInterval("PT{$this->interval}S"));
