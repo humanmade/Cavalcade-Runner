@@ -445,8 +445,7 @@ class Runner
                         break;
                     }
 
-                    $this->log->error('abandoned worker found', $job->log_values_full());
-                    $this->log->error_app('abandoned worker found', $job->log_values_full());
+                    $this->log->debug('abandoned worker found', $job->log_values_full());
                     $job->mark_waiting();
                 }
             },
