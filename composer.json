@@ -7,6 +7,10 @@
     {
       "name": "Human Made",
       "homepage": "https://hmn.md/"
+    },
+    {
+      "name": "Tarosky INC.",
+      "homepage": "https://tarosky.co.jp/"
     }
   ],
   "require": {
@@ -16,7 +20,7 @@
   },
   "require-dev": {
     "squizlabs/php_codesniffer": ">=3.5",
-    "phpunit/phpunit": "7.5.20",
+    "phpunit/phpunit": "9.3.9",
     "yoast/phpunit-polyfills": "^1.0"
   },
   "bin": [

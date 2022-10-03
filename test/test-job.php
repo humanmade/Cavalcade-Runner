@@ -4,6 +4,8 @@ namespace HM\Cavalcade\Runner\Tests;
 
 class Test_Job extends CavalcadeRunner_TestCase
 {
+    const DATE_FORMAT = 'Y-m-d H:i:s';
+
     private static function go_wpcli_blocking()
     {
         file_put_contents(WPTEST_WPCLI_FIFO, "\n");
@@ -71,6 +73,21 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(6);
 
+        $this->assertNull($this->get_job(JOB));
+    }
+
+    function test_deleted_event()
+    {
+        global $wpdb;
+
+        $pre_time = time();
+        wp_schedule_single_event($pre_time, JOB, [__FUNCTION__]);
+        $job = $this->get_job(JOB);
+        $wpdb->query("UPDATE `$this->table` SET `deleted_at` = '2000-01-01 00:00:00' WHERE `id` = $job->id");
+
+        sleep(5);
+
+        $this->assertFileDoesNotExist(ACTUAL_FUNCTION);
         $this->assertNull($this->get_job(JOB));
     }
 
