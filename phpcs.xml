@@ -6,6 +6,7 @@
 	<file>autoload.php</file>
 	<file>fakewp/</file>
 	<file>inc/</file>
+	<file>test/</file>
 
  <arg name="colors"/>
  <arg value="s"/>

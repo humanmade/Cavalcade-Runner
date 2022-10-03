@@ -7,10 +7,11 @@ use PDO;
 
 const SCHEMA_VERSION = 12;
 
-const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
 
 class DBSchema
 {
+    const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
+
     private $log;
     private $db;
     private $log_table;
@@ -100,7 +101,7 @@ class DBSchema
 
     public function create_table()
     {
-        $empty_deleted_at = EMPTY_DELETED_AT;
+        $empty_deleted_at = self::EMPTY_DELETED_AT;
         $query = "CREATE TABLE `$this->table` (
             `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 
@@ -329,7 +330,7 @@ class DBSchema
      */
     private function upgrade_database_to_12()
     {
-        $empty_deleted_at = EMPTY_DELETED_AT;
+        $empty_deleted_at = self::EMPTY_DELETED_AT;
 
         $this->db->execute_query(
             "UPDATE `$this->table` SET `hook_instance` = '' WHERE `hook_instance` IS NULL"

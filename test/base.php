@@ -78,7 +78,7 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         file_get_contents(RUNNER_CTRL_DONE_FIFO);
     }
 
-    function setUp()
+    function setUp(): void
     {
         global $wpdb;
 
@@ -160,7 +160,7 @@ abstract class CavalcadeRunner_TestCase extends WP_UnitTestCase
         @unlink(RUNNER_WPTEST_FIFO);
     }
 
-    function tearDown()
+    function tearDown(): void
     {
         $this->exit_runner();
 

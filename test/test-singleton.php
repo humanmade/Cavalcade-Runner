@@ -44,7 +44,7 @@ class Test_Singleton extends CavalcadeRunner_TestCase
         flock($this->lockfile, LOCK_UN);
         sleep(11);
 
-        $this->assertFileNotExists(RUNNER_STARTED);
+        $this->assertFileDoesNotExist(RUNNER_STARTED);
     }
 
     function test_no_lock()
@@ -52,7 +52,7 @@ class Test_Singleton extends CavalcadeRunner_TestCase
         file_put_contents(PUBLIC_IP, EIP);
         sleep(11);
 
-        $this->assertFileNotExists(RUNNER_STARTED);
+        $this->assertFileDoesNotExist(RUNNER_STARTED);
     }
 
     function test_eip_stolen()
@@ -86,6 +86,6 @@ class Test_Singleton extends CavalcadeRunner_TestCase
 
         sleep(20);
 
-        $this->assertFileNotExists(RUNNER_STARTED);
+        $this->assertFileDoesNotExist(RUNNER_STARTED);
     }
 }

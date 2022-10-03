@@ -14,6 +14,8 @@ const MAINTENANCE_FILE = '.maintenance';
 
 class Runner
 {
+    const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
+
     public $max_workers;
     public $wpcli_path;
     public $cleanup_interval;
@@ -206,21 +208,21 @@ class Runner
                 'Type' => 'bigint(20) unsigned',
                 'Null' => 'NO',
                 'Key' => 'PRI',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => 'auto_increment',
             ],
             'site' => [
                 'Type' => 'bigint(20) unsigned',
                 'Null' => 'NO',
                 'Key' => 'MUL',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'hook' => [
                 'Type' => 'varchar(255)',
                 'Null' => 'NO',
                 'Key' => 'MUL',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'hook_instance' => [
@@ -234,28 +236,28 @@ class Runner
                 'Type' => 'longtext',
                 'Null' => 'NO',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'args_digest' => [
                 'Type' => 'char(64)',
                 'Null' => 'NO',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'nextrun' => [
                 'Type' => 'datetime',
                 'Null' => 'NO',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'interval' => [
                 'Type' => 'int(10) unsigned',
                 'Null' => 'YES',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'status' => [
@@ -269,7 +271,7 @@ class Runner
                 'Type' => 'varchar(255)',
                 'Null' => 'YES',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'registered_at' => [
@@ -290,14 +292,14 @@ class Runner
                 'Type' => 'datetime',
                 'Null' => 'YES',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'finished_at' => [
                 'Type' => 'datetime',
                 'Null' => 'YES',
                 'Key' => '',
-                'Default' => NULL,
+                'Default' => null,
                 'Extra' => '',
             ],
             'deleted_at' => [
@@ -567,11 +569,14 @@ class Runner
     {
         // $this->log->debug('trying to get next job');
 
+        $empty_deleted_at = self::EMPTY_DELETED_AT;
+
         try {
             $res = $this->db->prepare_query(
                 "SELECT * FROM `$this->table`
                  WHERE `nextrun` < NOW()
                  AND `status` = 'waiting'
+                 AND `deleted_at` = '$empty_deleted_at'
                  ORDER BY `nextrun` ASC
                  LIMIT 1",
                 function ($stmt) {

@@ -47,7 +47,7 @@ class Test_Metadata_Error extends CavalcadeRunner_TestCase
         $this->assertEquals(STATUS_DONE, $job->status);
     }
 
-    function tearDown()
+    function tearDown(): void
     {
         @unlink(GET_CURRENT_IPS_ERROR);
         parent::tearDown();
