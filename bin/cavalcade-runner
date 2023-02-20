@@ -46,15 +46,25 @@ set_error_handler(function ($errno, $errstr, $errfile, $errline) use ($log) {
 });
 
 const NETWORK_MACS_URL = 'http://169.254.169.254/latest/meta-data/network/interfaces/macs/';
+const MAX_RETRY = 3;
+const RETRY_INTERVAL = 1000;
 
 $get_current_ips = function () {
-    $ctx = stream_context_create(['http' => ['timeout' => 0.5]]);
-    $get = function ($url) use ($ctx) {
-        $res = @file_get_contents($url, false, $ctx);
-        if ($res === false) {
-            throw new MetadataError("failed to get URL: " . $url);
+    $get = null;
+    $get = function ($url, $retry_count = 0) use (&$get) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $content = curl_exec($ch);
+        curl_close($ch);
+
+        if ($content === false) {
+            if ($retry_count < MAX_RETRY) {
+                usleep(RETRY_INTERVAL * 1000);
+                return $get($url, $retry_count + 1);
+            }
+            throw new MetadataError("failed to get URL: $url");
         }
-        return $res;
+        return $content;
     };
 
     # Cast as array explicitly to avoid Intelephense error.
@@ -126,8 +136,7 @@ try {
     @fclose($lockfile);
 }
 
-function has_eip($log, $eip)
-{
+function has_eip($log, $eip) {
     global $get_current_ips;
 
     try {
@@ -146,8 +155,7 @@ function has_eip($log, $eip)
     return false;
 }
 
-function file_locked($log, $lockfile)
-{
+function file_locked($log, $lockfile) {
     if (flock($lockfile, LOCK_EX | LOCK_NB)) {
         $log->debug('lock succeeded');
         return true;
@@ -157,8 +165,7 @@ function file_locked($log, $lockfile)
     return false;
 }
 
-function set_signal_handler()
-{
+function set_signal_handler() {
     $terminate = function ($signal) {
         throw new SignalInterrupt(
             'Terminated by signal during ensure_singleton()',
@@ -170,8 +177,7 @@ function set_signal_handler()
     pcntl_signal(SIGQUIT, $terminate);
 }
 
-function ensure_singleton($log, $lockfile_path, $eip)
-{
+function ensure_singleton($log, $lockfile_path, $eip) {
     // This lockfile (and its lock) will be closed when this process is exited.
     $lockfile = fopen($lockfile_path, 'w+');
     if ($lockfile === false) {
