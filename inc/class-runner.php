@@ -12,8 +12,7 @@ const LOOP_INTERVAL = 1;
 const MYSQL_DATE_FORMAT = 'Y-m-d H:i:s';
 const MAINTENANCE_FILE = '.maintenance';
 
-class Runner
-{
+class Runner {
     const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
 
     public $max_workers;
@@ -108,8 +107,7 @@ class Runner
         return static::$instance;
     }
 
-    private function save_current_state()
-    {
+    private function save_current_state() {
         $json = json_encode($this->state);
         if ($json === false) {
             throw new Exception('failed to encode state: ' . var_export($this->state, true));
@@ -122,8 +120,7 @@ class Runner
         $this->log->info('state file updated', ['state' => var_export($this->state, true)]);
     }
 
-    private function load_state()
-    {
+    private function load_state() {
         if (!file_exists($this->state_path)) {
             $this->state = new \stdClass();
         } else {
@@ -139,8 +136,7 @@ class Runner
         }
     }
 
-    public function bootstrap()
-    {
+    public function bootstrap() {
         $this->load_state();
 
         $config_path = $this->wp_path . '/wp-config.php';
@@ -195,8 +191,7 @@ class Runner
         $this->cleanup_abandoned();
     }
 
-    public function validate_schema()
-    {
+    public function validate_schema() {
         $validate = function ($pred, $message) {
             if (!$pred) {
                 throw new Exception("schema validation failed: $message");
@@ -393,8 +388,7 @@ class Runner
         );
     }
 
-    public function cleanup()
-    {
+    public function cleanup() {
         $expired = new DateTime('now', new DateTimeZone('UTC'));
         $expired->sub(new DateInterval("PT{$this->cleanup_delay}S"));
         $expired_str = $expired->format(MYSQL_DATE_FORMAT);
@@ -429,8 +423,7 @@ class Runner
         // $this->log->debug('cleanup done', ['expired' => $expired_str]);
     }
 
-    public function cleanup_abandoned()
-    {
+    public function cleanup_abandoned() {
         $this->log->debug('cleaning up abandoned');
 
         $this->db->prepare_query(
@@ -457,8 +450,7 @@ class Runner
         $this->log->debug('cleanup abandoned done');
     }
 
-    public function is_maintenance_mode()
-    {
+    public function is_maintenance_mode() {
         $in_maintenance = file_exists($this->maintenance_path);
         if ($in_maintenance) {
             $this->log->debug('is maintenance mode', ['file' => $this->maintenance_path]);
@@ -466,8 +458,7 @@ class Runner
         return $in_maintenance;
     }
 
-    public function run()
-    {
+    public function run() {
         pcntl_signal(SIGTERM, [$this, 'terminate_by_signal']);
         pcntl_signal(SIGINT, [$this, 'terminate_by_signal']);
         pcntl_signal(SIGQUIT, [$this, 'terminate_by_signal']);
@@ -525,8 +516,7 @@ class Runner
         }
     }
 
-    protected function terminate_by_signal($signal)
-    {
+    public function terminate_by_signal($signal) {
         $this->log->info(
             sprintf('cavalcade received terminate signal during excecution (%s), exiting...', $signal)
         );
@@ -535,16 +525,14 @@ class Runner
         throw new SignalInterrupt('Terminated by signal', $signal);
     }
 
-    protected function terminate_by_exception($e)
-    {
+    protected function terminate_by_exception($e) {
         $this->log->info(sprintf('exception occurred during execution (%s), exiting...', $e->getMessage()));
         $this->terminate(get_class($e));
 
         throw $e;
     }
 
-    protected function terminate($type)
-    {
+    protected function terminate($type) {
         $this->hooks->run('Runner.terminate.will_terminate', $type);
 
         $this->log->debug(sprintf('shutting down %d worker(s)...', count($this->workers)));
@@ -560,13 +548,11 @@ class Runner
         unset($this->db);
     }
 
-    public function get_wp_path()
-    {
+    public function get_wp_path() {
         return $this->wp_path;
     }
 
-    protected function get_next_job()
-    {
+    protected function get_next_job() {
         // $this->log->debug('trying to get next job');
 
         $empty_deleted_at = self::EMPTY_DELETED_AT;
@@ -603,8 +589,7 @@ class Runner
         return $res;
     }
 
-    protected function run_job($job)
-    {
+    protected function run_job($job) {
         try {
             $this->hooks->run('Runner.run_job.acquiring_lock', $this->db->get_connection(), $job);
             $has_lock = $job->acquire_lock();
@@ -657,8 +642,7 @@ class Runner
         $this->hooks->run('Runner.run_job.started', $worker, $job);
     }
 
-    protected function job_command($job, $error_log_file)
-    {
+    protected function job_command($job, $error_log_file) {
         $siteurl = $job->get_site_url();
 
         $command = "php -d error_log=$error_log_file $this->wpcli_path --no-color cavalcade run $job->id";
@@ -670,8 +654,7 @@ class Runner
         return $this->hooks->run('Runner.job_command.command', $command, $job);
     }
 
-    protected function check_workers()
-    {
+    protected function check_workers() {
         if (empty($this->workers)) {
             return;
         }
