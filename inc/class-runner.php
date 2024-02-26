@@ -28,7 +28,6 @@ class Runner
     protected $db;
     protected $workers = [];
     protected $wp_path;
-    protected $maintenance_path;
     protected $table_prefix;
     protected $table;
     protected $state;
@@ -53,7 +52,6 @@ class Runner
         $this->cleanup_interval = $cleanup_interval;
         $this->cleanup_delay = $cleanup_delay;
         $this->wp_path = realpath($wp_base_path);
-        $this->maintenance_path = $this->wp_path . '/' . MAINTENANCE_FILE;
         $this->max_log_size = $max_log_size;
         $this->state_path = $state_path;
         $this->hooks = new Hooks();
@@ -442,15 +440,6 @@ class Runner
         $this->log->debug('cleanup abandoned done');
     }
 
-    public function is_maintenance_mode()
-    {
-        $in_maintenance = file_exists($this->maintenance_path);
-        if ($in_maintenance) {
-            $this->log->debug('is maintenance mode', ['file' => $this->maintenance_path]);
-        }
-        return $in_maintenance;
-    }
-
     public function run()
     {
         pcntl_signal(SIGTERM, [$this, 'terminate_by_signal']);
@@ -467,18 +456,12 @@ class Runner
 
                 $now = time();
 
-                list($is_healthy, $reason) = check_eip($this->log);
+                list($is_healthy, $reason) = healthcheck();
 
                 if (!$is_healthy) {
                     $this->log->info($reason->getMessage(), $reason->getData());
                     $this->log->info('system is unhealthy, exiting...');
                     $this->terminate($reason->getType());
-                    break;
-                }
-
-                if ($this->is_maintenance_mode()) {
-                    $this->log->info('maintenance mode activated during excecution, exiting...');
-                    $this->terminate('maintenance');
                     break;
                 }
 

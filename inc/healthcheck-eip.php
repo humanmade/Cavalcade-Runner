@@ -11,9 +11,9 @@ const RETRY_INTERVAL = 1000;
 
 function init_healthcheck($option)
 {
-    global $eip, $prev_ip_check, $ip_check_interval;
+    global $eip, $prev_ip_check, $ip_check_interval, $maintenance_path;
 
-    list($eip, $ip_check_interval) = explode(',', $option);
+    list($eip, $ip_check_interval, $maintenance_path) = explode(',', $option);
     $prev_ip_check = 0;
 }
 
@@ -122,6 +122,34 @@ function check_eip()
     $prev_result = $result = check_eip_now();
 
     return $result;
+}
+
+function check_no_maintenance()
+{
+    global $maintenance_path;
+
+    if (file_exists($maintenance_path)) {
+        return [
+            false,
+            new HealthcheckFailure(
+                'maintenance',
+                'maintenance mode is active',
+                ['file' => $maintenance_path],
+            ),
+        ];
+    }
+
+    return [true, null];
+}
+
+function healthcheck()
+{
+    list($is_no_maintenance, $reason) = check_no_maintenance();
+    if (!$is_no_maintenance) {
+        return [false, $reason];
+    }
+
+    return check_eip();
 }
 
 /*CAVALCADE_GET_IP_FOR_TESTING*/

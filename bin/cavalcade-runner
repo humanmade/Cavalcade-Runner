@@ -69,10 +69,6 @@ try {
         $max_log_size,
         $state_path
     );
-    while ($runner->is_maintenance_mode()) {
-        pcntl_signal_dispatch();
-        sleep(10);
-    }
     $runner->bootstrap();
     /*CAVALCADE_HOOKS_FOR_TESTING*/
     $log->info('Cavalcade Runner started');
@@ -127,7 +123,7 @@ function ensure_singleton($log, $lockfile_path)
     }
 
     while (true) {
-        list($is_healthy, $reason) = check_eip($log);
+        list($is_healthy, $reason) = healthcheck();
         if ($is_healthy) {
             $log->debug('passed healthcheck');
 

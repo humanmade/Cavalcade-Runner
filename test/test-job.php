@@ -264,7 +264,7 @@ class Test_Job extends CavalcadeRunner_TestCase
 
         sleep(10 + 2);
 
-        $this->assertTrue(self::log_exists('maintenance mode activated'));
+        $this->assertTrue(self::log_exists('maintenance mode is active'));
         $job = $this->get_job(JOB_LONG);
         $this->assertEquals(STATUS_DONE, $job->status);
     }

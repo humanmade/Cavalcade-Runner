@@ -5,7 +5,7 @@ set -eu
 ctrl_fifo=work/runner_ctrl.fifo
 ctrl_done_fifo=work/runner_ctrl_done.fifo
 
-runner_command='bin/cavalcade-runner-test -l work/log/cavalcade-runner.log -p work/cavalcade-runner.pid -b /www -w 10 -i 2 -d 6 -e 192.0.2.255,5 -k work/runner.lock -s work/log/runner-state.json -z 2000 -q inc/healthcheck-test.php'
+runner_command='bin/cavalcade-runner-test -l work/log/cavalcade-runner.log -p work/cavalcade-runner.pid -b /www -w 10 -i 2 -d 6 -e 192.0.2.255,5,/www/.maintenance -k work/runner.lock -s work/log/runner-state.json -z 2000 -q inc/healthcheck-test.php'
 
 mkdir -p work
 mkfifo "$ctrl_fifo" "$ctrl_done_fifo"
