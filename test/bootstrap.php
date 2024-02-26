@@ -8,6 +8,7 @@ require '/wp-tests/includes/functions.php';
 require '/wp-tests/includes/bootstrap.php';
 require __DIR__ . '/base.php';
 
+
 const CAVALCADE_TEST_BIN = '/workspace/bin/cavalcade-runner-test';
 
 $cavalcade_for_testing = file_get_contents('/workspace/bin/cavalcade-runner');
@@ -70,6 +71,26 @@ $runner->hooks->register('Runner.check_workers.job_finishing', function ($db, $w
 });
 EOS;
 
+const CAVALCADE_PDOCLASS = <<<'EOS'
+$pdoclass = 'HM\Cavalcade\Runner\PDOTester';
+EOS;
+
+$cavalcade_for_testing = str_replace(
+    '/*CAVALCADE_HOOKS_FOR_TESTING*/',
+    CAVALCADE_HOOK,
+    $cavalcade_for_testing,
+);
+
+$cavalcade_for_testing = str_replace(
+    '/*CAVALCADE_PDOCLASS_FOR_TESTING*/',
+    CAVALCADE_PDOCLASS,
+    $cavalcade_for_testing,
+);
+
+file_put_contents(CAVALCADE_TEST_BIN, $cavalcade_for_testing, 0);
+chmod(CAVALCADE_TEST_BIN, 0755);
+
+
 const CAVALCADE_GET_IP = <<<'EOS'
 $get_current_ips = function () {
     if (file_exists('/workspace/work/log/get-current-ips-error')) {
@@ -83,27 +104,12 @@ $get_current_ips = function () {
 };
 EOS;
 
-const CAVALCADE_PDOCLASS = <<<'EOS'
-$pdoclass = 'HM\Cavalcade\Runner\PDOTester';
-EOS;
+$healthcheck_for_testing = file_get_contents('/workspace/inc/healthcheck-eip.php');
 
-$cavalcade_for_testing = str_replace(
-    '/*CAVALCADE_HOOKS_FOR_TESTING*/',
-    CAVALCADE_HOOK,
-    $cavalcade_for_testing,
-);
-
-$cavalcade_for_testing = str_replace(
+$healthcheck_for_testing = str_replace(
     '/*CAVALCADE_GET_IP_FOR_TESTING*/',
     CAVALCADE_GET_IP,
-    $cavalcade_for_testing,
+    $healthcheck_for_testing,
 );
 
-$cavalcade_for_testing = str_replace(
-    '/*CAVALCADE_PDOCLASS_FOR_TESTING*/',
-    CAVALCADE_PDOCLASS,
-    $cavalcade_for_testing,
-);
-
-file_put_contents(CAVALCADE_TEST_BIN, $cavalcade_for_testing, 0);
-chmod(CAVALCADE_TEST_BIN, 0755);
+file_put_contents('/workspace/inc/healthcheck-test.php', $healthcheck_for_testing, 0);

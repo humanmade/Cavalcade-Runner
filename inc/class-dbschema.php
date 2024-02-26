@@ -10,7 +10,7 @@ const SCHEMA_VERSION = 12;
 
 class DBSchema
 {
-    const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
+    private const EMPTY_DELETED_AT = '9999-12-31 23:59:59';
 
     private $log;
     private $db;

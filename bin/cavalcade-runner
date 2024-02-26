@@ -7,19 +7,19 @@ use Exception;
 
 include dirname(__DIR__) . '/autoload.php';
 
-$options = getopt('l:p:b:w:c:i:d:e:k:h:z:s:');
+$options = getopt('l:p:b:w:c:i:d:e:k:h:z:s:q:');
 $log_path = $options['l'] ?? '/var/log/wp/cron.log';
 $pid_file = $options['p'] ?? '/run/cavalcade-runner/cavalcade-runner.pid';
 $wp_base_path = $options['b'] ?? '/var/web/wp';
 $max_workers_count = intval($options['w'] ?? 2);
 $wpcli_path = $options['c'] ?? '/usr/local/bin/wp';
 $cleanup_interval = intval($options['i'] ?? 60);
-$ip_check_interval = intval($options['h'] ?? 5);
 $cleanup_delay = intval($options['d'] ?? 24 * 60 * 60);
-$eip = $options['e'];
+$healthcheck_option = $options['e'];
 $lockfile_path = $options['k'] ?? '/var/etc/custom/cavalcade/runner.lock';
 $state_path = $options['s'] ?? '/var/etc/custom/cavalcade/state.json';
 $max_log_size = intval($options['z'] ?? 100 * 1024);
+$healthcheck_php = $options['q'] ?? dirname(__DIR__) . '/inc/healthcheck-eip.php';
 
 date_default_timezone_set('UTC');
 $log = Logger::create($log_path);
@@ -45,71 +45,9 @@ set_error_handler(function ($errno, $errstr, $errfile, $errline) use ($log) {
     throw new PHPException("PHP error ocurred: $errstr", $errno, $errstr, $errfile, $errline);
 });
 
-const IMDSV2_TOKEN_URL = 'http://169.254.169.254/latest/api/token';
-const NETWORK_MACS_URL = 'http://169.254.169.254/latest/meta-data/network/interfaces/macs/';
-const MAX_RETRY = 3;
-const RETRY_INTERVAL = 1000;
+require $healthcheck_php;
 
-$get_current_ips = (function () {
-    $token = null;
-
-    $renew_token = function () use (&$token) {
-        $ch = curl_init(IMDSV2_TOKEN_URL);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-aws-ec2-metadata-token-ttl-seconds: 21600']);
-        curl_setopt($ch, CURLOPT_PUT, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $content = curl_exec($ch);
-        curl_close($ch);
-        $token = $content;
-    };
-
-    $get = null;
-    $get = function ($url, $retry_count = 0) use (&$get, &$token, $renew_token) {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HEADER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["X-aws-ec2-metadata-token: $token"]);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-        $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $content = substr($response, $header_size);
-        curl_close($ch);
-
-        if ($status !== 200) {
-            if ($status === 401) {
-                $renew_token();
-            }
-            if ($retry_count < MAX_RETRY) {
-                usleep(RETRY_INTERVAL * 1000);
-                return $get($url, $retry_count + 1);
-            }
-            throw new MetadataError("failed to get URL: $url");
-        }
-        return $content;
-    };
-
-    $func = function () use ($get) {
-        # Cast as array explicitly to avoid Intelephense error.
-        # https://github.com/bmewburn/vscode-intelephense/issues/1643
-        $ips = (array)array_merge(...array_map(
-            function ($mac) use ($get) {
-                return array_filter(array_map(
-                    'trim',
-                    explode("\n", $get(NETWORK_MACS_URL . $mac . 'public-ipv4s'))
-                ));
-            },
-            array_filter(array_map('trim', explode("\n", $get(NETWORK_MACS_URL))))
-        ));
-        sort($ips);
-        return $ips;
-    };
-
-    $renew_token();
-
-    return $func;
-})();
-
-/*CAVALCADE_GET_IP_FOR_TESTING*/
+init_healthcheck($healthcheck_option);
 
 $pdoclass = 'PDO';
 
@@ -119,7 +57,7 @@ file_put_contents($pid_file, $pid);
 
 try {
     set_signal_handler();
-    $lockfile = ensure_singleton($log, $lockfile_path, $eip);
+    $lockfile = ensure_singleton($log, $lockfile_path);
     $runner = Runner::instance(
         $log,
         $pdoclass,
@@ -128,9 +66,6 @@ try {
         $cleanup_interval,
         $cleanup_delay,
         $wp_base_path,
-        $get_current_ips,
-        $ip_check_interval,
-        $eip,
         $max_log_size,
         $state_path
     );
@@ -163,26 +98,8 @@ try {
     @fclose($lockfile);
 }
 
-function has_eip($log, $eip) {
-    global $get_current_ips;
-
-    try {
-        $ips = $get_current_ips();
-    } catch (Exception $e) {
-        $log->info('failed to get public IP: ' . $e->getMessage());
-        return false;
-    }
-
-    if (in_array($eip, $ips)) {
-        $log->debug('found EIP', ['eip' => $eip]);
-        return true;
-    }
-
-    $log->debug('could not find EIP', ['eip' => $eip, 'current_ips' => var_export($ips, true)]);
-    return false;
-}
-
-function file_locked($log, $lockfile) {
+function file_locked($log, $lockfile)
+{
     if (flock($lockfile, LOCK_EX | LOCK_NB)) {
         $log->debug('lock succeeded');
         return true;
@@ -192,7 +109,8 @@ function file_locked($log, $lockfile) {
     return false;
 }
 
-function set_signal_handler() {
+function set_signal_handler()
+{
     $terminate = function ($signal) {
         throw new SignalInterrupt(
             'Terminated by signal during ensure_singleton()',
@@ -204,7 +122,8 @@ function set_signal_handler() {
     pcntl_signal(SIGQUIT, $terminate);
 }
 
-function ensure_singleton($log, $lockfile_path, $eip) {
+function ensure_singleton($log, $lockfile_path)
+{
     // This lockfile (and its lock) will be closed when this process is exited.
     $lockfile = fopen($lockfile_path, 'w+');
     if ($lockfile === false) {
@@ -212,7 +131,7 @@ function ensure_singleton($log, $lockfile_path, $eip) {
         throw new Exception('failed to open lockfile');
     }
 
-    while (!has_eip($log, $eip) || !file_locked($log, $lockfile)) {
+    while (!has_eip($log) || !file_locked($log, $lockfile)) {
         pcntl_signal_dispatch();
         sleep(10);
     }
