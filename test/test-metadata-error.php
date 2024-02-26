@@ -24,7 +24,7 @@ class Test_Metadata_Error extends CavalcadeRunner_TestCase
         return 0 < count($res) ? $res[0] : null;
     }
 
-    function test_metadata_error()
+    public function test_metadata_error()
     {
         wp_schedule_single_event(time(), JOB_LONG, [__FUNCTION__]);
 
@@ -41,13 +41,14 @@ class Test_Metadata_Error extends CavalcadeRunner_TestCase
 
         sleep(10 + 2);
 
-        $this->assertTrue(self::log_exists('"shutting down"'));
-        $this->assertTrue(self::log_exists('"metadata error"'));
+        $this->assertTrue(self::log_exists('failed to get URL'));
+        $this->assertTrue(self::log_exists('exiting'));
+        $this->assertTrue(self::log_exists('process exited gracefully'));
         $job = $this->get_job(JOB_LONG);
         $this->assertEquals(STATUS_DONE, $job->status);
     }
 
-    function tearDown(): void
+    public function tearDown(): void
     {
         @unlink(GET_CURRENT_IPS_ERROR);
         parent::tearDown();

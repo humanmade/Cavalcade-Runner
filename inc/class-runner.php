@@ -467,8 +467,12 @@ class Runner
 
                 $now = time();
 
-                if (!check_eip($this->log, $now)) {
-                    $this->terminate('eip');
+                list($is_healthy, $reason) = check_eip($this->log);
+
+                if (!$is_healthy) {
+                    $this->log->info($reason->getMessage(), $reason->getData());
+                    $this->log->info('system is unhealthy, exiting...');
+                    $this->terminate($reason->getType());
                     break;
                 }
 

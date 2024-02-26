@@ -7,7 +7,7 @@ use Exception;
 
 include dirname(__DIR__) . '/autoload.php';
 
-$options = getopt('l:p:b:w:c:i:d:e:k:h:z:s:q:');
+$options = getopt('l:p:b:w:c:i:d:e:k:z:s:q:');
 $log_path = $options['l'] ?? '/var/log/wp/cron.log';
 $pid_file = $options['p'] ?? '/run/cavalcade-runner/cavalcade-runner.pid';
 $wp_base_path = $options['b'] ?? '/var/web/wp';
@@ -83,17 +83,12 @@ try {
         'reason' => $e->getMessage(),
         'signal' => $e->getCode(),
     ]);
-} catch (MetadataError $e) {
-    $log->info('shutting down', [
-        'type' => 'metadata error',
-        'reason' => $e->getMessage(),
-        'signal' => $e->getCode(),
-    ]);
 } catch (Exception $e) {
     $log->fatal($e->getMessage(), ['trace' => $e->getTraceAsString()]);
     unlink($pid_file);
     exit(1);
 } finally {
+    $log->info('process exited gracefully');
     unlink($pid_file);
     @fclose($lockfile);
 }
@@ -131,7 +126,18 @@ function ensure_singleton($log, $lockfile_path)
         throw new Exception('failed to open lockfile');
     }
 
-    while (!has_eip($log) || !file_locked($log, $lockfile)) {
+    while (true) {
+        list($is_healthy, $reason) = check_eip($log);
+        if ($is_healthy) {
+            $log->debug('passed healthcheck');
+
+            if (file_locked($log, $lockfile)) {
+                break;
+            }
+        } else {
+            $log->info($reason->getMessage(), $reason->getData());
+        }
+
         pcntl_signal_dispatch();
         sleep(10);
     }

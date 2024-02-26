@@ -14,7 +14,7 @@ function init_healthcheck($option)
     global $eip, $prev_ip_check, $ip_check_interval;
 
     list($eip, $ip_check_interval) = explode(',', $option);
-    $prev_ip_check = time();
+    $prev_ip_check = 0;
 }
 
 $get_current_ips = (function () {
@@ -76,42 +76,52 @@ $get_current_ips = (function () {
     return $func;
 })();
 
-function has_eip($log)
+function check_eip_now()
 {
     global $get_current_ips, $eip;
 
     try {
         $ips = $get_current_ips();
     } catch (Exception $e) {
-        $log->info('failed to get public IP: ' . $e->getMessage());
-        return false;
+        return [
+            false,
+            new HealthcheckFailure(
+                'eip',
+                'failed to get public IP: ' . $e->getMessage(),
+                [],
+                $e,
+            ),
+        ];
     }
 
     if (in_array($eip, $ips)) {
-        $log->debug('found EIP', ['eip' => $eip]);
-        return true;
+        return [true, null];
     }
 
-    $log->debug('could not find EIP', ['eip' => $eip, 'current_ips' => var_export($ips, true)]);
-    return false;
+    return [
+        false,
+        new HealthcheckFailure(
+            'eip',
+            'could not find EIP',
+            ['eip' => $eip, 'current_ips' => var_export($ips, true)],
+        ),
+    ];
 }
 
-function check_eip($log, $now)
+function check_eip()
 {
-    global $prev_ip_check, $ip_check_interval, $get_current_ips, $eip;
+    global $prev_ip_check, $ip_check_interval, $prev_result;
+
+    $now = time();
 
     if ($now - $prev_ip_check < $ip_check_interval) {
-        return true;
+        return $prev_result;
     }
 
     $prev_ip_check = $now;
-    if (in_array($eip, $get_current_ips())) {
-        return true;
-    }
+    $prev_result = $result = check_eip_now();
 
-    $log->info('eip lost during excecution, exiting...');
-
-    return false;
+    return $result;
 }
 
 /*CAVALCADE_GET_IP_FOR_TESTING*/
