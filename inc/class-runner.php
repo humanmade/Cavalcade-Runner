@@ -23,6 +23,7 @@ class Runner {
 	protected $db;
 	protected $workers = [];
 	protected $wp_path;
+	protected $table_prefix;
 
 	/**
 	 * Instance of the runner.

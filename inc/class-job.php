@@ -18,6 +18,7 @@ class Job {
 	public $nextrun;
 	public $interval;
 	public $status;
+	public $schedule;
 
 	protected $db;
 	protected $table_prefix;
