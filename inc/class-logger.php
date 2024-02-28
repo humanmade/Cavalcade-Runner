@@ -6,9 +6,6 @@ class Logger {
 	protected $db;
 	protected $table_prefix;
 
-	protected $db;
-	protected $table_prefix;
-
 	public function __construct( $db, $table_prefix ) {
 		$this->db = $db;
 		$this->table_prefix = $table_prefix;
