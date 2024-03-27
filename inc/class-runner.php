@@ -181,6 +181,7 @@ class Runner {
 		// Wait and clean up
 
 		$graceful = $this->options['graceful_shutdown_timeout'];
+		$did_graceful = false;
 		$force = $this->options['force_shutdown_timeout'];
 		while ( ! empty( $this->workers ) ) {
 			$this->check_workers();
@@ -195,6 +196,7 @@ class Runner {
 				foreach ( $this->workers as $worker ) {
 					$worker->sigterm();
 				}
+				$did_graceful = true;
 			}
 
 			// If we've reached the force timeout, we need to kill the workers.
@@ -208,6 +210,7 @@ class Runner {
 				$this->check_workers();
 				break;
 			}
+
 			usleep( 100000 );
 		}
 
