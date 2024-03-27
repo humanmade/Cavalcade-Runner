@@ -4,11 +4,20 @@ Description=CavalcadeRunner
 
 [Service]
 TimeoutStartSec=0
-TimeoutStopSec=600
 Restart=always
 WorkingDirectory=/srv/www/webroot
 User=www-data
 ExecStart=/etc/cavalcade/bin/cavalcade
+
+# When killing Cavalcade (eg system shutdown or service stop), send the
+# SIGTERM only to the runner so that we can propagate it ourselves. (SIGKILL
+# is sent for cleanup.)
+KillMode=mixed
+
+# Wait 10min before sending SIGKILL when stopping. This should be set to a
+# value higher than the force_shutdown_timeout option to ensure the Runner can
+# gracefully stop children.
+TimeoutStopSec=600
 
 [Install]
 WantedBy=multi-user.target
