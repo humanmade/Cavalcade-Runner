@@ -35,7 +35,7 @@ class Job {
 
 	public function get_site_url() {
 
-		if ( ! self::blogs_table_exists() ) {
+		if ( ! $this->blogs_table_exists() ) {
 			return false;
 		}
 
