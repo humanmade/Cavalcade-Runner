@@ -26,7 +26,7 @@ class Job {
 	/**
 	 * @var null|bool
 	 */
-	static protected $blogs_table_exists;
+	protected static $blogs_table_exists;
 
 	public function __construct( $db, $table_prefix ) {
 		$this->db = $db;
