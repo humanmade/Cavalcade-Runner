@@ -35,6 +35,25 @@ class Runner {
 	public function __construct( $options = [] ) {
 		$defaults = [
 			'max_workers' => 4,
+
+			// After receiving a SIGTERM, delay until we propagate SIGTERM to
+			// workers. This will kill any jobs which aren't specifically
+			// designed to catch and ignore it, so should be set to a
+			// reasonable value for general WordPress jobs.
+			// (Delay in seconds, or false to disable.)
+			'graceful_shutdown_timeout' => 30,
+
+			// After sending a SIGTERM, delay until we send a SIGKILL to
+			// force-shutdown any workers. This should be set to a higher
+			// value than graceful_shutdown_timeout.
+			//
+			// Delay is specified as *total* time after Cavalcade-Runner
+			// receives the SIGTERM from the system.
+			// (Workers will have `force_shutdown_timeout - graceful_shutdown_timeout`
+			// seconds to shut down gracefully.)
+			//
+			// (Delay in seconds, or false to disable.)
+			'force_shutdown_timeout' => 90,
 		];
 		$this->options = array_merge( $defaults, $options );
 		$this->hooks = new Hooks();
@@ -148,6 +167,8 @@ class Runner {
 	}
 
 	public function terminate( $signal ) {
+		$received_at = microtime( true );
+
 		/**
 		 * Action before terminating workers.
 		 *
@@ -159,8 +180,38 @@ class Runner {
 
 		printf( 'Cavalcade received terminate signal (%s), shutting down %d worker(s)...' . PHP_EOL, $signal, count( $this->workers ) );
 		// Wait and clean up
+
+		$graceful = $this->options['graceful_shutdown_timeout'];
+		$did_graceful = false;
+		$force = $this->options['force_shutdown_timeout'];
 		while ( ! empty( $this->workers ) ) {
 			$this->check_workers();
+
+			$now = microtime( true );
+
+			// If we've reached the graceful timeout, pass on the SIGTERM.
+			// This will kill any workers that aren't intentionally capturing
+			// SIGTERMs (eg any non-Cavalcade jobs in WP)
+			if ( $graceful !== false && $now >= ( $received_at + $graceful ) ) {
+				printf( 'Graceful shutdown timeout reached, sending SIGTERM to %d worker(s)...' . PHP_EOL, count( $this->workers ) );
+				foreach ( $this->workers as $worker ) {
+					$worker->sigterm();
+				}
+				$did_graceful = true;
+			}
+
+			// If we've reached the force timeout, we need to kill the workers.
+			if ( $force !== false && $now >= ( $received_at + $force ) ) {
+				printf( 'Force shutdown timeout reached, sending SIGKILL to %d worker(s)...' . PHP_EOL, count( $this->workers ) );
+				foreach ( $this->workers as $worker ) {
+					$worker->sigkill();
+				}
+
+				// Perform final check, then break.
+				$this->check_workers();
+				break;
+			}
+
 			usleep( 100000 );
 		}
 

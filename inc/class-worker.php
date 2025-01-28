@@ -49,6 +49,26 @@ class Worker {
 	}
 
 	/**
+	 * Send a SIGTERM to the process.
+	 *
+	 * This is used by Runner::terminate() to indicate a graceful shutdown.
+	 * Workers have 60s (by default) to shut down gracefully.
+	 */
+	public function sigterm() {
+		proc_terminate( $this->process, SIGTERM );
+	}
+
+	/**
+	 * Send a SIGKILL to the process.
+	 *
+	 * This is used by Runner::terminate() to indicate a forced shutdown.
+	 * Workers have 60s (by default) to shut down gracefully.
+	 */
+	public function sigkill() {
+		proc_terminate( $this->process, SIGKILL );
+	}
+
+	/**
 	 * Shut down the process
 	 *
 	 * @return bool Did the process run successfully?
