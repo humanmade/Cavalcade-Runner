@@ -372,7 +372,9 @@ class Runner {
 		 */
 		$logger = $this->hooks->run(
 			'Runner.check_workers.logger',
-			new Logger( $this->db, $this->table_prefix )
+			new Logger( $this->db, $this->table_prefix ),
+			$this->db,
+			$this->table_prefix
 		);
 
 		// Clean up all of the finished workers
