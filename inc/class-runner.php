@@ -386,7 +386,7 @@ class Runner {
 
 			if ( ! $worker->shutdown() ) {
 				$worker->job->mark_failed();
-				$logger->log_job_failed( $worker->job, 'Failed to shutdown worker.' );
+				$logger->log_job_failed( $worker->job, 'Failed to shutdown worker.', $worker );
 
 				/**
 				 * Action after a job has failed.
@@ -398,7 +398,7 @@ class Runner {
 				$this->hooks->run( 'Runner.check_workers.job_failed', $worker, $worker->job, $logger );
 			} else {
 				$worker->job->mark_completed();
-				$logger->log_job_completed( $worker->job );
+				$logger->log_job_completed( $worker->job, '', $worker );
 
 				/**
 				 * Action after a job has failed.

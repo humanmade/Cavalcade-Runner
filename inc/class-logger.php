@@ -11,11 +11,11 @@ class Logger {
 		$this->table_prefix = $table_prefix;
 	}
 
-	public function log_job_completed( Job $job, $message = '' ) {
+	public function log_job_completed( Job $job, $message, Worker $worker ) {
 		$this->log_run( $job->id, 'completed', $message );
 	}
 
-	public function log_job_failed( Job $job, $message = '' ) {
+	public function log_job_failed( Job $job, $message, Worker $worker ) {
 		$this->log_run( $job->id, 'failed', $message );
 	}
 
