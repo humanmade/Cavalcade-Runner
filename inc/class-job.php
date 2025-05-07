@@ -85,7 +85,11 @@ class Job {
 	}
 
 	public function reschedule() {
-        $this->nextrun = $this->calculateNextRun();
+        $nextRunDateTime = $this->calculateNextRun();
+        if ($this->isTheSameJobAlreadyScheduled($nextRunDateTime)) {
+            return;
+        };
+        $this->nextrun = $nextRunDateTime->format(MYSQL_DATE_FORMAT);
 		$this->status = 'waiting';
 
 		$query = "UPDATE {$this->table_prefix}cavalcade_jobs";
@@ -127,7 +131,7 @@ class Job {
         $statement->execute();
     }
 
-    private function calculateNextRun(): string
+    private function calculateNextRun(): DateTime
     {
         $start = new DateTime( $this->start, new DateTimeZone( 'UTC' ) );
         $startUnix = $start->getTimestamp();
@@ -143,6 +147,27 @@ class Job {
         $date = new DateTime( $this->start, new DateTimeZone( 'UTC' ) );
         $date->add( new DateInterval( "PT{$delayFromStartTillNextRun}S" ) );
 
-        return $date->format( MYSQL_DATE_FORMAT );
+        return $date;
     }
+
+	private function isTheSameJobAlreadyScheduled($nextRunDateTime): bool
+	{
+		$query = "SELECT id FROM {$this->table_prefix}cavalcade_jobs";
+		$query .= ' WHERE status = "waiting"
+                    AND hook = :hook
+                    AND site = :site
+                    AND nextrun > :nextrunFrom
+                    AND nextrun < :nextrunTo
+                    AND id != :id';
+
+		$statement = $this->db->prepare($query);
+		$statement->bindValue(':hook', $this->hook);
+		$statement->bindValue(':site', $this->site);
+		$statement->bindValue(':nextrunFrom', $nextRunDateTime->remove(new DateInterval('PT10S'))->format(MYSQL_DATE_FORMAT));
+		$statement->bindValue(':nextrunTo', $nextRunDateTime->add(new DateInterval('PT10S'))->format(MYSQL_DATE_FORMAT));
+		$statement->bindValue(':id', $this->id);
+		$statement->execute();
+
+		return (0 !== $statement->rowCount());
+	}
 }
