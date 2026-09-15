@@ -27,7 +27,20 @@ EOF;
 
 $wp_path = isset( $argv[1] ) ? $argv[1] : '.';
 
-$runner = Runner::instance();
+$runner_options = [];
+
+// Allow the worker count to be matched to the host via the environment.
+$max_workers = getenv( 'CAVALCADE_MAX_WORKERS' );
+if ( $max_workers !== false && $max_workers !== '' ) {
+	$max_workers = filter_var( $max_workers, FILTER_VALIDATE_INT, [ 'options' => [ 'min_range' => 1 ] ] );
+	if ( $max_workers === false ) {
+		fwrite( STDERR, 'CAVALCADE_MAX_WORKERS must be a positive integer, using the default instead.' . PHP_EOL );
+	} else {
+		$runner_options['max_workers'] = $max_workers;
+	}
+}
+
+$runner = Runner::instance( $runner_options );
 try {
 	$runner->bootstrap( $wp_path );
 	$runner->run();

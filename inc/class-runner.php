@@ -11,11 +11,6 @@ use PDO;
 const LOOP_INTERVAL = 1;
 
 class Runner {
-	/**
-	 * Default maximum number of concurrent workers.
-	 */
-	const DEFAULT_MAX_WORKERS = 4;
-
 	public $options = [];
 
 	/**
@@ -39,54 +34,21 @@ class Runner {
 
 	public function __construct( $options = [] ) {
 		$defaults = [
-			'max_workers' => static::get_max_workers_from_env(),
+			'max_workers' => 4,
 		];
 		$this->options = array_merge( $defaults, $options );
 		$this->hooks = new Hooks();
 	}
 
 	/**
-	 * Get the maximum number of concurrent workers from the environment.
-	 *
-	 * Reads the CAVALCADE_MAX_WORKERS environment variable, allowing the worker
-	 * count to be matched to the resources of the host the Runner runs on. Each
-	 * worker spawns a full WordPress process, so a default of 4 can overcommit
-	 * memory on smaller hosts.
-	 *
-	 * Values that are not positive integers are ignored with a warning, so a
-	 * misconfigured environment degrades to the default rather than running
-	 * with no effective worker limit.
-	 *
-	 * @return int Maximum number of concurrent workers.
-	 */
-	protected static function get_max_workers_from_env() {
-		$value = getenv( 'CAVALCADE_MAX_WORKERS' );
-		if ( $value === false || $value === '' ) {
-			return static::DEFAULT_MAX_WORKERS;
-		}
-
-		$max_workers = filter_var( $value, FILTER_VALIDATE_INT );
-		if ( $max_workers === false || $max_workers < 1 ) {
-			fwrite( STDERR, sprintf(
-				'Cavalcade: CAVALCADE_MAX_WORKERS must be a positive integer, got "%s". Using %d instead.' . PHP_EOL,
-				$value,
-				static::DEFAULT_MAX_WORKERS
-			) );
-
-			return static::DEFAULT_MAX_WORKERS;
-		}
-
-		return $max_workers;
-	}
-
-	/**
 	 * Get the singleton instance of the Runner.
 	 *
+	 * @param array $options Options passed to the constructor when the instance is first created.
 	 * @return self
 	 */
-	public static function instance() {
+	public static function instance( $options = [] ) {
 		if ( empty( static::$instance ) ) {
-			static::$instance = new static();
+			static::$instance = new static( $options );
 		}
 
 		return static::$instance;

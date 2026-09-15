@@ -27,13 +27,9 @@ more about running this.
 
 ## Configuration
 
-| Environment variable     | Default | Description                                     |
-| ------------------------ | ------- | ----------------------------------------------- |
-| `CAVALCADE_MAX_WORKERS`  | `4`     | Maximum number of jobs to run concurrently.     |
+| Environment variable    | Default | Description                                  |
+| ----------------------- | ------- | -------------------------------------------- |
+| `CAVALCADE_MAX_WORKERS` | `4`     | Maximum number of jobs to run concurrently.  |
 
-Each worker spawns a full WordPress process, so the worker count is usually what determines the Runner's peak memory
-use. On a host with limited memory — a small container instance, for example — 4 concurrent workers can exceed available
-RAM, and the resulting swapping is often far more expensive than the reduced cron throughput would have been. Lower
-`CAVALCADE_MAX_WORKERS` to match the host.
-
-Values that are not positive integers are ignored, with a warning on `STDERR`, and the default is used.
+Each worker is a full WordPress process, so the worker count largely determines the Runner's peak memory use. Lower it
+on hosts with limited memory.
