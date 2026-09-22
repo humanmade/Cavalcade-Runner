@@ -24,3 +24,12 @@
 
 This is the runner for Cavalcade. Head over to the [Cavalcade repo](https://github.com/humanmade/Cavalcade) to learn
 more about running this.
+
+## Configuration
+
+| Environment variable    | Default | Description                                  |
+| ----------------------- | ------- | -------------------------------------------- |
+| `CAVALCADE_MAX_WORKERS` | `4`     | Maximum number of jobs to run concurrently.  |
+
+Each worker is a full WordPress process, so the worker count largely determines the Runner's peak memory use. Lower it
+on hosts with limited memory.

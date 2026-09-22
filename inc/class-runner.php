@@ -43,11 +43,12 @@ class Runner {
 	/**
 	 * Get the singleton instance of the Runner.
 	 *
+	 * @param array $options Options passed to the constructor when the instance is first created.
 	 * @return self
 	 */
-	public static function instance() {
+	public static function instance( $options = [] ) {
 		if ( empty( static::$instance ) ) {
-			static::$instance = new static();
+			static::$instance = new static( $options );
 		}
 
 		return static::$instance;
@@ -117,7 +118,7 @@ class Runner {
 			$this->check_workers();
 
 			// Do we have workers to spare?
-			if ( count( $this->workers ) === $this->options['max_workers'] ) {
+			if ( count( $this->workers ) >= $this->options['max_workers'] ) {
 				// At maximum workers, wait a cycle
 				printf( '[  ] Out of workers' . PHP_EOL );
 				sleep( LOOP_INTERVAL );
