@@ -56,11 +56,16 @@ class Job {
 			return static::$blogs_table_exists;
 		}
 
-		$query = "SHOW TABLES LIKE '{$this->table_prefix}blogs'";
-		$statement = $this->db->prepare( $query );
-		$statement->execute();
+		$query  = "
+			SELECT 1
+			FROM   INFORMATION_SCHEMA.TABLES
+			WHERE  TABLE_SCHEMA = DATABASE()
+			  AND  TABLE_NAME   = :tbl
+		";
+		$statement   = $this->db->prepare( $query );
+		$statement->execute( [ ':tbl' => "{$this->table_prefix}blogs" ] );
 
-		static::$blogs_table_exists = $statement->rowCount() > 0;
+		static::$blogs_table_exists = (bool) $statement->fetchColumn();
 
 		return static::$blogs_table_exists;
 	}
